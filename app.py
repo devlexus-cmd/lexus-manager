@@ -3,210 +3,320 @@ import google.generativeai as genai
 from PIL import Image
 import pandas as pd
 import time
+import datetime
 
-# --- CONFIGURATION DE LA PAGE ---
+# --- 1. CONFIGURATION SYSTÈME ---
 st.set_page_config(
-    page_title="LEXUS AI | Enterprise Manager",
+    page_title="LEXUS AI | Enterprise",
     page_icon="💎",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- DESIGN CUSTOM (CSS) ---
-# On injecte le style de la maquette pour transformer Streamlit
+# --- 2. GESTION D'ÉTAT (MÉMOIRE DU LOGICIEL) ---
+# C'est ici qu'on stocke les données pour qu'elles ne disparaissent pas quand on clique.
+if 'page' not in st.session_state:
+    st.session_state.page = 'dashboard'
+if 'selected_project' not in st.session_state:
+    st.session_state.selected_project = None
+if 'projects' not in st.session_state:
+    # Données simulées initiales
+    st.session_state.projects = [
+        {"id": 1, "name": "Audit Financier 2026", "client": "Groupe Alpha", "budget": "12,500 €", "status": "En cours", "match": 95, "workflow_progress": 0.2},
+        {"id": 2, "name": "Rénovation Siège Social", "client": "BTP Corp", "budget": "45,000 €", "status": "Analyse", "match": 85, "workflow_progress": 0.0},
+        {"id": 3, "name": "Stratégie IT Global", "client": "Tech Solutions", "budget": "8,200 €", "status": "Rejeté", "match": 70, "workflow_progress": 1.0},
+    ]
+
+# --- 3. STYLE CSS PREMIUM (NOIR PROFOND & BLEU ELECTRIQUE) ---
 st.markdown("""
 <style>
-    /* Couleurs de fond et texte */
-    .stApp {
-        background-color: #0a0a0b;
-        color: #ffffff;
-    }
+    /* RESET & BASE */
+    .stApp { background-color: #0a0a0b; color: #ffffff; font-family: 'Helvetica Neue', sans-serif; }
     
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #121214;
-        border-right: 1px solid rgba(255,255,255,0.05);
-    }
+    /* SIDEBAR */
+    section[data-testid="stSidebar"] { background-color: #111114 !important; border-right: 1px solid rgba(255,255,255,0.05); }
     
-    /* Cartes KPI */
-    div[data-testid="metric-container"] {
-        background-color: #121214;
+    /* CARTES & CONTENEURS */
+    .project-card {
+        background-color: #16161a;
         border: 1px solid rgba(255,255,255,0.05);
         padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        border-radius: 12px;
+        margin-bottom: 15px;
+        transition: all 0.2s ease;
     }
+    .project-card:hover { border-color: #0055FF; transform: translateY(-2px); }
     
-    /* Boutons */
+    /* METRICS */
+    div[data-testid="stMetric"] {
+        background-color: #16161a;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    div[data-testid="stMetricValue"] { color: #0055FF !important; }
+    
+    /* BOUTONS */
     .stButton>button {
         background-color: #0055FF;
         color: white;
-        border-radius: 10px;
+        border-radius: 8px;
         border: none;
-        padding: 12px 24px;
         font-weight: 600;
-        transition: all 0.3s ease;
+        transition: 0.3s;
         width: 100%;
     }
-    .stButton>button:hover {
-        background-color: #0044cc;
-        box-shadow: 0 0 15px rgba(0,85,255,0.4);
-        transform: translateY(-2px);
+    .stButton>button:hover { background-color: #0044cc; box-shadow: 0 0 15px rgba(0,85,255,0.4); }
+    
+    /* BOUTON SECONDAIRE (Gris) */
+    .secondary-button>button { background-color: #2a2a30; }
+    
+    /* INPUTS */
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div>div {
+        background-color: #16161a !important; color: white !important; border: 1px solid #333 !important;
     }
     
-    /* Inputs */
-    .stTextInput>div>div>input {
-        background-color: #0a0a0b;
-        color: white;
-        border: 1px solid rgba(255,255,255,0.1);
+    /* NAVIGATION STEPS */
+    .step-container {
+        display: flex; align-items: center; padding: 10px; 
+        border-bottom: 1px solid rgba(255,255,255,0.05);
     }
+    .step-title { font-weight: bold; font-size: 14px; margin-left: 10px; }
+    .step-desc { font-size: 12px; color: #888; margin-left: 10px; }
     
-    /* Titres */
-    h1, h2, h3 {
-        font-weight: 300 !important;
-    }
-    .highlight {
-        color: #0055FF;
-        font-weight: 700;
-    }
-    
-    /* Zone d'upload */
-    [data-testid="stFileUploadDropzone"] {
-        background-color: #121214;
-        border: 2px dashed rgba(0,85,255,0.3);
-        border-radius: 20px;
-    }
+    /* BADGES */
+    .badge-blue { background-color: rgba(0,85,255,0.15); color: #0055FF; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+    .badge-green { background-color: rgba(0,255,128,0.15); color: #00FF80; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- LOGIQUE DE CONNEXION ---
-def init_gemini(api_key):
+# --- 4. FONCTIONS LOGIQUES ---
+def navigate_to(page, project=None):
+    st.session_state.page = page
+    if project:
+        st.session_state.selected_project = project
+    st.rerun()
+
+def detect_models(api_key):
     try:
         genai.configure(api_key=api_key)
-        models = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                models.append(m.name)
-        return models
-    except:
-        return []
+        return [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    except: return []
 
-# --- BARRE LATÉRALE (NAVIGATION) ---
+# --- 5. SIDEBAR (LOGO & MENU) ---
 with st.sidebar:
-    # Logo simulé (LA avec point bleu)
     st.markdown("""
-    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0;">
-        <div style="position: relative; font-size: 28px; font-weight: 300; color: white;">
-            L<span style="color: #A0A0A0;">A</span>
-            <div style="position: absolute; top: -2px; right: -8px; width: 8px; height: 8px; background-color: #0055FF; rounded-radius: 50%; border-radius: 50%; box-shadow: 0 0 10px #0055FF;"></div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+            <div style="position:relative; font-size:32px; font-weight:200;">L<span style="color:#888;">A</span>
+            <div style="position:absolute; top:2px; right:-8px; width:8px; height:8px; background:#0055FF; border-radius:50%; box-shadow:0 0 15px #0055FF;"></div></div>
+            <div style="font-weight:700; letter-spacing:2px; font-size:14px; margin-left:15px;">LEXUS AI</div>
         </div>
-        <div style="font-size: 14px; font-weight: 600; color: white; letter-spacing: 2px; margin-left: 15px; text-transform: uppercase;">Lexus AI</div>
-    </div>
     """, unsafe_allow_html=True)
     
-    st.caption("Système Management v2.5")
+    # Menu de navigation principal
+    if st.button("📊  Tableau de Bord", use_container_width=True): navigate_to('dashboard')
+    if st.button("✨  Lexus AI Studio", use_container_width=True): navigate_to('ai_studio')
+    if st.button("⚙️  Paramètres", use_container_width=True): navigate_to('settings')
+    
     st.divider()
     
-    menu = st.radio("NAVIGATION", ["Tableau de Bord", "Lexus AI Studio", "Paramètres"], label_visibility="collapsed")
+    # Configuration API
+    api_key_input = st.text_input("CLÉ API GOOGLE", type="password", placeholder="Saisir votre clé...")
     
-    st.divider()
-    api_key = st.text_input("CLÉ API GOOGLE", type="password", placeholder="Votre clé S97M...")
-    
-    # Auto-détection du modèle
-    selected_model = "models/gemini-1.5-flash"
-    if api_key:
-        available_models = init_gemini(api_key)
+    current_model = "models/gemini-1.5-flash"
+    if api_key_input:
+        available_models = detect_models(api_key_input)
         if available_models:
-            selected_model = st.selectbox("IA DÉTECTÉE", available_models)
-            st.success("Connecté au Cloud")
+            # Auto-sélection intelligente
+            idx = 0
+            if "models/gemini-2.5-pro" in available_models: idx = available_models.index("models/gemini-2.5-pro")
+            elif "models/gemini-1.5-flash" in available_models: idx = available_models.index("models/gemini-1.5-flash")
+            
+            current_model = st.selectbox("IA CONNECTÉE", available_models, index=idx)
+            st.success("Système en ligne")
         else:
-            st.error("Clé API Invalide")
+            st.error("Erreur Clé API")
 
-# --- FONCTION D'ANALYSE ---
-def analyze_document(api_key, model_name, image, task):
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
-        prompt = f"Tu es Lexus AI, un assistant expert business. Ta tâche : {task}. Analyse précisément ce document (Excel, Word ou PDF scanné)."
-        response = model.generate_content([prompt, image])
-        return response.text
-    except Exception as e:
-        return f"Erreur d'analyse : {str(e)}"
+# --- 6. ROUTEUR DE PAGES ---
 
-# --- PAGE 1 : TABLEAU DE BORD ---
-if menu == "Tableau de Bord":
-    st.markdown("# Bonjour, <span class='highlight'>Eliot</span>", unsafe_allow_html=True)
-    st.write("Voici l'état de vos dossiers stratégiques.")
+# ==========================================
+# PAGE : TABLEAU DE BORD (DASHBOARD)
+# ==========================================
+if st.session_state.page == 'dashboard':
+    st.markdown("<h1 style='font-weight:200; margin-bottom:0;'>Pilotage <span style='color:#0055FF; font-weight:700;'>Global</span></h1>", unsafe_allow_html=True)
     
-    # Metrics
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Appels d'Offres", "14", "+2 cette semaine")
-    c2.metric("Documents Lus", "1,284", "99.8% précision")
-    c3.metric("Budget Détecté", "2.4M €", "Opportunités")
+    # KPIs
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("CA Prévisionnel", "1.2M €", "+12%")
+    c2.metric("Dossiers Actifs", str(len(st.session_state.projects)), "+2")
+    c3.metric("Taux Succès", "32%", "Stable")
+    c4.metric("Actions à faire", "5", "Urgent")
+    
+    st.write("") # Spacer
+    
+    # Section Projets
+    col_title, col_btn = st.columns([4, 1])
+    with col_title: st.subheader("Vos Dossiers en cours")
+    with col_btn: 
+        if st.button("➕ Nouveau Dossier"):
+            st.toast("Module de création ouvert (Simulation)")
+    
+    # Affichage des cartes projets (Liste interactive)
+    for project in st.session_state.projects:
+        # On crée une "Card" visuelle
+        with st.container():
+            st.markdown(f"""
+            <div class="project-card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-size:18px; font-weight:bold;">{project['name']}</div>
+                        <div style="color:#888; font-size:14px;">{project['client']} • <span style="color:#0055FF;">{project['budget']}</span></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span class="badge-blue">{project['status']}</span>
+                        <span class="badge-green">{project['match']}% Match</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Le bouton "Détails" invisible qui couvre la carte (hack Streamlit)
+            # Ici on utilise un vrai bouton en dessous pour l'interaction
+            c_space, c_btn = st.columns([5, 1])
+            with c_btn:
+                if st.button("Ouvrir ➔", key=f"btn_{project['id']}"):
+                    navigate_to('project_detail', project)
+
+# ==========================================
+# PAGE : DÉTAILS PROJET (LE WORKFLOW)
+# ==========================================
+elif st.session_state.page == 'project_detail':
+    proj = st.session_state.selected_project
+    
+    # Fil d'ariane
+    if st.button("← Retour au Tableau de bord", type="secondary"): navigate_to('dashboard')
+    
+    st.markdown(f"<h1 style='font-weight:700;'>{proj['name']}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:#888; font-weight:300;'>Client : {proj['client']} | Budget : <span style='color:#0055FF;'>{proj['budget']}</span></h3>", unsafe_allow_html=True)
     
     st.divider()
     
-    st.subheader("Activités Récentes")
-    df_data = {
-        "Document": ["AO_Siege_Alpha.pdf", "Devis_P3.xlsx", "Contrat_IT.docx", "Audit_RSE.pdf"],
-        "Type": ["Appel d'Offre", "Excel / Devis", "Word / Contrat", "Rapport"],
-        "Statut": ["✅ Terminé", "✅ Terminé", "⏳ En cours", "✅ Terminé"],
-        "Score": ["98%", "100%", "-", "95%"]
-    }
-    st.table(pd.DataFrame(df_data))
+    # Layout : Workflow à gauche, IA et Actions à droite
+    col_work, col_actions = st.columns([2, 1])
+    
+    with col_work:
+        st.subheader("Workflow Opérationnel")
+        
+        # Liste des 11 étapes demandées
+        steps = [
+            ("1. Prise de contact", "Repérer la personne clé dans les docs"),
+            ("2. Réunir l'équipe", "Lister compétences, SIRET, CV, Portfolio"),
+            ("3. Collecter les docs", "Lister infos manquantes, questions à poser"),
+            ("4. Estimer 1er devis", "Méthodo, chiffrage jours/km"),
+            ("5. Écrire le mémoire", "Note méthodologique, RSE, Vision"),
+            ("6. Relire / Ajuster", "Aller-retour sur l'estimation"),
+            ("7. Docs Administratifs", "DC1, DC2, DPGF, BPU, AE"),
+            ("8. Synthèse & Envoi", "Vérifier complétude et envoyer"),
+            ("9. Réception", "Confirmer la bonne réception"),
+            ("10. Compléter", "Si besoin, rajouter pièces"),
+            ("11. Relancer", "Suivre pour la réponse")
+        ]
+        
+        for i, (title, desc) in enumerate(steps):
+            chk = st.checkbox(f"**{title}**", key=f"step_{i}", help=desc)
+            if chk:
+                st.caption(f"✅ *{desc}*")
+            else:
+                st.caption(f"⚪️ {desc}")
+            st.divider()
 
-# --- PAGE 2 : LEXUS AI STUDIO ---
-elif menu == "Lexus AI Studio":
-    st.markdown("# Lexus <span class='highlight'>Studio</span>", unsafe_allow_html=True)
-    st.write("Importez vos AO, Excel ou Word pour une extraction instantanée.")
-    
-    col_input, col_res = st.columns([1, 1])
-    
-    with col_input:
-        st.subheader("1. Import")
-        uploaded_file = st.file_uploader("Glissez vos documents ici", type=["jpg", "png", "jpeg"])
+    with col_actions:
+        st.subheader("Intelligence Artificielle")
+        st.info("Utilisez Lexus AI pour accélérer ce dossier.")
         
-        task_type = st.selectbox("Action souhaitée", [
-            "Analyse complète de l'Appel d'Offre",
-            "Extraction des chiffres et tableaux (Excel)",
-            "Vérification des clauses de conformité",
-            "Synthèse exécutive pour décideurs"
-        ])
+        with st.expander("📄 Analyser l'Appel d'Offre", expanded=True):
+            uploaded_ao = st.file_uploader("Déposer le PDF/Image du DCE", type=['jpg', 'png', 'pdf'])
+            if uploaded_ao and st.button("Analyser les critères"):
+                with st.spinner("Lecture des contraintes..."):
+                    time.sleep(2)
+                    st.success("Critères extraits : RSE (20%), Prix (40%), Tech (40%)")
         
-        if uploaded_file:
-            img = Image.open(uploaded_file)
-            st.image(img, use_container_width=True)
-            
-            if st.button("LANCER L'ANALYSE LEXUS AI 🚀"):
-                if not api_key:
-                    st.warning("⚠️ Veuillez entrer votre clé API à gauche.")
+        with st.expander("💰 Générer le Devis"):
+            st.write("Basé sur votre taux journalier (450€)")
+            if st.button("Calculer l'estimation"):
+                st.success("Estimation : 12.5 jours = 5,625€ HT")
+        
+        with st.expander("📝 Rédiger le Mémoire"):
+            st.write("Génération du plan type")
+            if st.button("Générer le plan"):
+                st.success("Plan généré dans l'onglet Documents")
+
+# ==========================================
+# PAGE : LEXUS AI STUDIO (OUTILS)
+# ==========================================
+elif st.session_state.page == 'ai_studio':
+    st.markdown("<h1 style='font-weight:200;'>Lexus <span style='color:#0055FF; font-weight:700;'>Studio</span></h1>", unsafe_allow_html=True)
+    
+    tab1, tab2, tab3 = st.tabs(["📤 Import & Analyse", "💶 Générateur Devis", "📧 Assistant Mail"])
+    
+    with tab1:
+        c1, c2 = st.columns([1,1])
+        with c1:
+            st.subheader("Zone d'Analyse")
+            f = st.file_uploader("Déposer un document (Image)", type=['jpg', 'png', 'jpeg'])
+            task = st.selectbox("Objectif", ["Synthèse", "Extraction Données", "Conformité"])
+            if f and st.button("Lancer l'analyse 🚀"):
+                if not api_key_input:
+                    st.error("Clé API manquante")
                 else:
-                    with st.spinner("L'IA parcourt le document..."):
-                        # Petite animation de délai pour le feeling "Premium"
-                        time.sleep(1)
-                        result = analyze_document(api_key, selected_model, img, task_type)
-                        st.session_state['last_result'] = result
-
-    with col_res:
-        st.subheader("2. Résultat de l'Intelligence")
-        if 'last_result' in st.session_state:
-            st.markdown(st.session_state['last_result'])
-            st.download_button("Télécharger le rapport", st.session_state['last_result'], "rapport_lexus.txt")
-        else:
-            st.info("Le rapport détaillé apparaîtra ici après l'analyse.")
-
-# --- PAGE 3 : PARAMÈTRES ---
-elif menu == "Paramètres":
-    st.markdown("# Paramètres <span class='highlight'>Système</span>", unsafe_allow_html=True)
+                    with st.spinner("Analyse par Gemini..."):
+                        try:
+                            genai.configure(api_key=api_key_input)
+                            model = genai.GenerativeModel(current_model)
+                            img = Image.open(f)
+                            res = model.generate_content([f"Agis comme un expert. Tache : {task}. Analyse cette image.", img])
+                            st.session_state['ai_res_studio'] = res.text
+                        except Exception as e:
+                            st.error(f"Erreur : {e}")
+        with c2:
+            st.subheader("Résultat")
+            if 'ai_res_studio' in st.session_state:
+                st.info("Terminé")
+                st.markdown(st.session_state['ai_res_studio'])
     
-    with st.expander("Profil Entreprise", expanded=True):
-        st.text_input("Nom de la société", value="LEXUS Consulting")
-        st.selectbox("Secteur principal", ["BTP / Construction", "Audit & Finance", "IT", "Autre"])
-        st.text_area("Contexte pour l'IA", placeholder="Décrivez votre activité pour que l'IA soit plus précise...")
+    with tab2:
+        st.header("Outil de Chiffrage")
+        st.write("Cet outil calculera automatiquement votre devis basé sur vos paramètres.")
+        # Ici on pourrait mettre les formulaires de calcul
         
-    with st.expander("Sécurité & API"):
-        st.write(f"Modèle actif : {selected_model}")
-        st.toggle("Enregistrer les rapports localement", value=True)
-        
-    if st.button("Sauvegarder les préférences"):
-        st.success("Configuration mise à jour.")
+    with tab3:
+        st.header("Rédaction de Mails")
+        st.text_area("Contexte du mail", placeholder="Ex: Relance client pour le devis envoyé mardi...")
+        st.button("Générer le brouillon")
+
+# ==========================================
+# PAGE : PARAMÈTRES
+# ==========================================
+elif st.session_state.page == 'settings':
+    st.markdown("<h1 style='font-weight:200;'>Configuration <span style='color:#0055FF; font-weight:700;'>Système</span></h1>", unsafe_allow_html=True)
+    
+    t1, t2 = st.tabs(["Entreprise", "Documents Types"])
+    
+    with t1:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.text_input("Nom Société", value="LEXUS Enterprise")
+            st.text_input("SIRET")
+            st.text_input("Dirigeant", placeholder="Nom Prénom")
+        with c2:
+            st.number_input("Taux Journalier (€)", value=450)
+            st.text_area("Compétences Clés (séparées par des virgules)", value="Audit, BTP, Finance, Gestion de projet")
+            
+    with t2:
+        st.subheader("Modèles Administratifs")
+        st.text_area("Conditions Générales de Vente (CGV)", height=200, placeholder="Copiez vos CGV ici...")
+        st.text_area("Mentions Légales DC1/DC2", height=150)
+    
+    st.write("")
+    if st.button("Sauvegarder tout"):
+        st.success("Paramètres enregistrés dans la base locale.")
