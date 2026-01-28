@@ -2,108 +2,211 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import pandas as pd
+import time
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="LEXUS Enterprise", page_icon="💎", layout="wide")
+# --- CONFIGURATION DE LA PAGE ---
+st.set_page_config(
+    page_title="LEXUS AI | Enterprise Manager",
+    page_icon="💎",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- DESIGN ---
+# --- DESIGN CUSTOM (CSS) ---
+# On injecte le style de la maquette pour transformer Streamlit
 st.markdown("""
 <style>
-    .stApp { background-color: #ffffff; color: #000000; }
-    .stButton>button { background-color: #0044cc; color: white; border-radius: 8px; border: none; padding: 10px; width: 100%; font-weight: bold; }
-    .stButton>button:hover { background-color: #003399; }
-    h1, h2, h3 { color: #0044cc; }
-    div.stMetric { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border: 1px solid #e0e0e0; }
+    /* Couleurs de fond et texte */
+    .stApp {
+        background-color: #0a0a0b;
+        color: #ffffff;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #121214;
+        border-right: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    /* Cartes KPI */
+    div[data-testid="metric-container"] {
+        background-color: #121214;
+        border: 1px solid rgba(255,255,255,0.05);
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    
+    /* Boutons */
+    .stButton>button {
+        background-color: #0055FF;
+        color: white;
+        border-radius: 10px;
+        border: none;
+        padding: 12px 24px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        background-color: #0044cc;
+        box-shadow: 0 0 15px rgba(0,85,255,0.4);
+        transform: translateY(-2px);
+    }
+    
+    /* Inputs */
+    .stTextInput>div>div>input {
+        background-color: #0a0a0b;
+        color: white;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    /* Titres */
+    h1, h2, h3 {
+        font-weight: 300 !important;
+    }
+    .highlight {
+        color: #0055FF;
+        font-weight: 700;
+    }
+    
+    /* Zone d'upload */
+    [data-testid="stFileUploadDropzone"] {
+        background-color: #121214;
+        border: 2px dashed rgba(0,85,255,0.3);
+        border-radius: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- BARRE LATÉRALE ---
+# --- LOGIQUE DE CONNEXION ---
+def init_gemini(api_key):
+    try:
+        genai.configure(api_key=api_key)
+        models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                models.append(m.name)
+        return models
+    except:
+        return []
+
+# --- BARRE LATÉRALE (NAVIGATION) ---
 with st.sidebar:
-    st.title("💎 LEXUS MANAGER")
-    st.caption("Version Production (Auto-Détection)")
+    # Logo simulé (LA avec point bleu)
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0;">
+        <div style="position: relative; font-size: 28px; font-weight: 300; color: white;">
+            L<span style="color: #A0A0A0;">A</span>
+            <div style="position: absolute; top: -2px; right: -8px; width: 8px; height: 8px; background-color: #0055FF; rounded-radius: 50%; border-radius: 50%; box-shadow: 0 0 10px #0055FF;"></div>
+        </div>
+        <div style="font-size: 14px; font-weight: 600; color: white; letter-spacing: 2px; margin-left: 15px; text-transform: uppercase;">Lexus AI</div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    api_key = st.text_input("Clé API Google", type="password", placeholder="Collez votre clé ...S97M")
+    st.caption("Système Management v2.5")
+    st.divider()
     
-    # --- AUTO-DETECTION DES MODÈLES DISPONIBLES ---
-    available_models = []
+    menu = st.radio("NAVIGATION", ["Tableau de Bord", "Lexus AI Studio", "Paramètres"], label_visibility="collapsed")
+    
+    st.divider()
+    api_key = st.text_input("CLÉ API GOOGLE", type="password", placeholder="Votre clé S97M...")
+    
+    # Auto-détection du modèle
+    selected_model = "models/gemini-1.5-flash"
     if api_key:
-        try:
-            genai.configure(api_key=api_key)
-            # On demande à Google ce qui est dispo pour CETTE clé
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available_models.append(m.name)
-        except Exception as e:
-            st.error(f"Clé invalide : {e}")
+        available_models = init_gemini(api_key)
+        if available_models:
+            selected_model = st.selectbox("IA DÉTECTÉE", available_models)
+            st.success("Connecté au Cloud")
+        else:
+            st.error("Clé API Invalide")
 
-    # Sélecteur de modèle (pour éviter l'erreur 404)
-    if available_models:
-        selected_model = st.selectbox("Modèle IA détecté", available_models, index=0)
-        st.success(f"✅ Connecté à {selected_model}")
-    else:
-        if api_key:
-            st.warning("⚠️ Aucun modèle trouvé. Vérifiez que l'API est activée sur Google Cloud.")
-        selected_model = "models/gemini-1.5-flash" # Valeur par défaut
-    
-    menu = st.radio("Navigation", ["Tableau de Bord", "Lexus AI Studio", "Paramètres"])
-
-# --- FONCTION IA RÉELLE ---
-def analyze_real(api_key, model_name, image, prompt):
+# --- FONCTION D'ANALYSE ---
+def analyze_document(api_key, model_name, image, task):
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
+        prompt = f"Tu es Lexus AI, un assistant expert business. Ta tâche : {task}. Analyse précisément ce document (Excel, Word ou PDF scanné)."
         response = model.generate_content([prompt, image])
         return response.text
     except Exception as e:
-        return f"❌ ERREUR TECHNIQUE :\n{str(e)}\n\n👉 Conseil : Essayez de changer de modèle dans le menu de gauche."
+        return f"Erreur d'analyse : {str(e)}"
 
-# --- PAGE 1 : DASHBOARD ---
+# --- PAGE 1 : TABLEAU DE BORD ---
 if menu == "Tableau de Bord":
-    st.title("📊 Pilotage Commercial")
+    st.markdown("# Bonjour, <span class='highlight'>Eliot</span>", unsafe_allow_html=True)
+    st.write("Voici l'état de vos dossiers stratégiques.")
+    
+    # Metrics
     c1, c2, c3 = st.columns(3)
-    c1.metric("Chiffre d'Affaires", "1,250,000 €", "+12%")
-    c2.metric("Dossiers en cours", "8", "Actifs")
-    c3.metric("Taux de Conversion", "32%", "+4%")
+    c1.metric("Appels d'Offres", "14", "+2 cette semaine")
+    c2.metric("Documents Lus", "1,284", "99.8% précision")
+    c3.metric("Budget Détecté", "2.4M €", "Opportunités")
+    
     st.divider()
-    st.subheader("Derniers Appels d'Offres")
-    df = pd.DataFrame({
-        "Projet": ["Audit Financier 2024", "Siège Social BTP", "Conseil IT Stratégique", "Audit RSE Global"],
-        "Client": ["Groupe Alpha", "BTP Corp", "Tech Solutions", "Green Energy"],
-        "Budget": ["12,500 €", "45,000 €", "8,200 €", "22,000 €"],
-        "Statut": ["✅ En cours", "⏳ Analyse", "❌ Rejeté", "✅ En cours"]
-    })
-    st.dataframe(df, use_container_width=True)
+    
+    st.subheader("Activités Récentes")
+    df_data = {
+        "Document": ["AO_Siege_Alpha.pdf", "Devis_P3.xlsx", "Contrat_IT.docx", "Audit_RSE.pdf"],
+        "Type": ["Appel d'Offre", "Excel / Devis", "Word / Contrat", "Rapport"],
+        "Statut": ["✅ Terminé", "✅ Terminé", "⏳ En cours", "✅ Terminé"],
+        "Score": ["98%", "100%", "-", "95%"]
+    }
+    st.table(pd.DataFrame(df_data))
 
-# --- PAGE 2 : IA STUDIO ---
+# --- PAGE 2 : LEXUS AI STUDIO ---
 elif menu == "Lexus AI Studio":
-    st.title("✨ Intelligence Artificielle (RÉEL)")
+    st.markdown("# Lexus <span class='highlight'>Studio</span>", unsafe_allow_html=True)
+    st.write("Importez vos AO, Excel ou Word pour une extraction instantanée.")
     
-    col_g, col_d = st.columns([1, 1])
+    col_input, col_res = st.columns([1, 1])
     
-    with col_g:
+    with col_input:
         st.subheader("1. Import")
-        uploaded_file = st.file_uploader("Image du document", type=["jpg", "png", "jpeg"])
-        task = st.selectbox("Action", ["Analyse complète", "Extraction des montants", "Synthèse", "Rédaction email"])
+        uploaded_file = st.file_uploader("Glissez vos documents ici", type=["jpg", "png", "jpeg"])
+        
+        task_type = st.selectbox("Action souhaitée", [
+            "Analyse complète de l'Appel d'Offre",
+            "Extraction des chiffres et tableaux (Excel)",
+            "Vérification des clauses de conformité",
+            "Synthèse exécutive pour décideurs"
+        ])
         
         if uploaded_file:
-            image = Image.open(uploaded_file)
-            st.image(image, width=300)
+            img = Image.open(uploaded_file)
+            st.image(img, use_container_width=True)
             
-            if st.button("LANCER L'ANALYSE (VRAIE) 🚀"):
+            if st.button("LANCER L'ANALYSE LEXUS AI 🚀"):
                 if not api_key:
-                    st.error("Il manque la Clé API !")
+                    st.warning("⚠️ Veuillez entrer votre clé API à gauche.")
                 else:
-                    with st.spinner(f"Interrogation de {selected_model}..."):
-                        res = analyze_real(api_key, selected_model, image, f"Tu es un expert business. Tache : {task}. Analyse ce document visuellement.")
-                        st.session_state['resultat_reel'] = res
+                    with st.spinner("L'IA parcourt le document..."):
+                        # Petite animation de délai pour le feeling "Premium"
+                        time.sleep(1)
+                        result = analyze_document(api_key, selected_model, img, task_type)
+                        st.session_state['last_result'] = result
 
-    with col_d:
-        st.subheader("2. Résultat")
-        if 'resultat_reel' in st.session_state:
-            st.success("Réponse reçue de Google")
-            st.text_area("Rapport", st.session_state['resultat_reel'], height=500)
+    with col_res:
+        st.subheader("2. Résultat de l'Intelligence")
+        if 'last_result' in st.session_state:
+            st.markdown(st.session_state['last_result'])
+            st.download_button("Télécharger le rapport", st.session_state['last_result'], "rapport_lexus.txt")
+        else:
+            st.info("Le rapport détaillé apparaîtra ici après l'analyse.")
 
 # --- PAGE 3 : PARAMÈTRES ---
 elif menu == "Paramètres":
-    st.title("⚙️ Configuration")
-    st.text_input("Société", value="LEXUS Enterprise")
+    st.markdown("# Paramètres <span class='highlight'>Système</span>", unsafe_allow_html=True)
+    
+    with st.expander("Profil Entreprise", expanded=True):
+        st.text_input("Nom de la société", value="LEXUS Consulting")
+        st.selectbox("Secteur principal", ["BTP / Construction", "Audit & Finance", "IT", "Autre"])
+        st.text_area("Contexte pour l'IA", placeholder="Décrivez votre activité pour que l'IA soit plus précise...")
+        
+    with st.expander("Sécurité & API"):
+        st.write(f"Modèle actif : {selected_model}")
+        st.toggle("Enregistrer les rapports localement", value=True)
+        
+    if st.button("Sauvegarder les préférences"):
+        st.success("Configuration mise à jour.")
