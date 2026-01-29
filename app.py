@@ -8,9 +8,9 @@ import datetime
 from fpdf import FPDF
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
 
-# --- 2. GESTION DE L'ÉTAT ---
+# --- 2. GESTION DE L'ÉTAT (INIT VARIABLES MANQUANTES) ---
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
 if 'user_name' not in st.session_state: st.session_state.user_name = "Client"
@@ -23,20 +23,23 @@ if 'subscription_plan' not in st.session_state: st.session_state.subscription_pl
 if 'credits_used' not in st.session_state: st.session_state.credits_used = 42
 if 'credits_limit' not in st.session_state: st.session_state.credits_limit = 500
 
-# Données persistantes
-if 'projects' not in st.session_state:
-    st.session_state.projects = []
+# CORRECTION DU BUG ICI : On force l'init de user_skills
+if 'user_skills' not in st.session_state: 
+    st.session_state.user_skills = ["BTP", "Gestion de Projet", "Audit"]
+
 if 'user_criteria' not in st.session_state:
     st.session_state.user_criteria = {
-        "skills": ["BTP", "Gestion"],
         "min_daily_rate": 450,
         "max_distance": 50,
-        "certifications": [],
         "min_turnover_required": 0,
         "max_penalties": 5
     }
 
-# --- 3. CSS GLOBAL (LANDING + APP + FIX AFFICHAGE) ---
+# Données persistantes
+if 'projects' not in st.session_state:
+    st.session_state.projects = []
+
+# --- 3. CSS GLOBAL ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -44,34 +47,16 @@ st.markdown("""
     /* BASE */
     .stApp { background-color: #FFFFFF; color: #111111; font-family: 'Inter', sans-serif; }
     
-    /* CACHER ELEMENTS PARASITES */
+    /* CACHER ELEMENTS */
     .stApp > header { visibility: hidden; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     
-    /* LOGO LEXUS */
+    /* LOGO */
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    /* LANDING PAGE STYLES */
-    .hero-title { 
-        font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
-    }
-    .hero-subtitle { 
-        font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
-    }
-    
-    /* FEATURES GRID */
-    .feature-card {
-        padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
-        height: 100%; display: flex; flex-direction: column; align-items: center;
-    }
-    .feature-card:hover { border-color: #0055FF; transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-    .feature-icon svg { width: 32px; height: 32px; stroke: #0055FF; margin-bottom: 20px; }
-    .feature-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: #000; }
-    .feature-desc { font-size: 14px; color: #666; line-height: 1.5; }
-
-    /* BOUTONS NAVIGATION APP */
+    /* BOUTONS NAVIGATION */
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
     .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
     
@@ -129,16 +114,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION (RESTAURÉE) ===
+# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION ===
 # =========================================================
 
 def login_screen():
-    # Header simple
     c1, c2 = st.columns([1, 6])
     with c1:
         st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
     with c2:
-        # Alignement droite - Colonnes élargies pour le bouton (5, 0.5, 1.5 au lieu de 6, 1, 1)
         sc1, sc2, sc3 = st.columns([5, 0.5, 1.5])
         if sc3.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
 
@@ -148,7 +131,6 @@ def login_screen():
     
     c_cta1, c_cta2, c_cta3 = st.columns([1, 1, 1])
     with c_cta2:
-        # Utilisation d'un bouton form pour forcer le style bleu
         with st.form("hero_cta"):
             if st.form_submit_button("CRÉER UN COMPTE GRATUIT"):
                 st.session_state.auth_view = 'signup'
@@ -317,7 +299,7 @@ if st.session_state.page == 'dashboard':
                 st.session_state.projects.append({"id": len(st.session_state.projects)+1, "name": n_name, "client": n_client, "budget": n_budget, "status": "NOUVEAU", "analysis_done": False, "match": 0, "rse": "-", "delay": "-", "penalty": "-"})
                 st.rerun()
 
-# DETAIL PROJET (CORRIGÉ : Cartes HTML pour éviter coupure texte)
+# DETAIL PROJET
 elif st.session_state.page == 'project':
     p = st.session_state.current_project
     if st.button("← Retour liste"): st.session_state.page = 'dashboard'; st.rerun()
@@ -334,11 +316,12 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    res = analyze(img, f"Projet : {p['name']}. Extrais Matching, RSE, Délai, Pénalités.")
+                    # On envoie les critères personnalisés à l'IA
+                    criteria_text = f"Compétences: {', '.join(st.session_state.user_skills)}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
+                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
-            
             # --- CORRECTION AFFICHAGE CARTES IA ---
             c1, c2, c3, c4 = st.columns(4)
             with c1: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">MATCHING</div><div class="kpi-value">{p['match']}%</div></div>""", unsafe_allow_html=True)
