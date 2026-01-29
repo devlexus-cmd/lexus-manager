@@ -7,8 +7,8 @@ import io
 import datetime 
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="collapsed")
+# --- 1. CONFIGURATION (MENU OUVERT PAR DÉFAUT) ---
+st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
 
 # --- 2. GESTION DE L'ÉTAT ---
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
@@ -18,13 +18,20 @@ if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'company_info' not in st.session_state: st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
-# Base de données projets VIERGE (Plus d'exemples)
+# Données persistantes
 if 'projects' not in st.session_state:
-    st.session_state.projects = [] 
+    st.session_state.projects = []
+if 'user_criteria' not in st.session_state:
+    st.session_state.user_criteria = {
+        "skills": ["BTP", "Gestion"],
+        "min_daily_rate": 450,
+        "max_distance": 50,
+        "certifications": [],
+        "min_turnover_required": 0,
+        "max_penalties": 5
+    }
 
-if 'user_skills' not in st.session_state: st.session_state.user_skills = ["BTP", "Gestion"]
-
-# --- 3. CSS GLOBAL (LANDING + APP) ---
+# --- 3. CSS GLOBAL (CORRECTIFS AFFICHAGE) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -32,7 +39,12 @@ st.markdown("""
     /* BASE */
     .stApp { background-color: #FFFFFF; color: #111111; font-family: 'Inter', sans-serif; }
     
-    /* LOGO LEXUS (Commun) */
+    /* CACHER LES ÉLÉMENTS PARASITES (GitHub, Menu Streamlit) */
+    .stApp > header { visibility: hidden; }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    
+    /* LOGO LEXUS */
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
@@ -44,7 +56,7 @@ st.markdown("""
         font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
     }
     
-    /* FEATURES GRID (Clean sans emoji) */
+    /* FEATURES GRID */
     .feature-card {
         padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
         height: 100%; display: flex; flex-direction: column; align-items: center;
@@ -58,14 +70,35 @@ st.markdown("""
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
     .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
     
-    /* BOUTONS ACTIONS BLEUS */
-    div[data-testid="stHorizontalBlock"] .stButton>button, .primary-btn, .stFormSubmitButton>button { 
-        background-color: #0055FF !important; color: white !important; text-align: center !important; 
-        border-radius: 8px !important; padding: 12px 24px !important; font-weight: 600 !important; border: none !important;
-        width: 100%; box-shadow: 0 10px 20px rgba(0,85,255,0.2) !important;
+    /* BOUTONS ACTIONS BLEUS (Primaire) - FIX AFFICHAGE */
+    div[data-testid="stHorizontalBlock"] .stButton>button, 
+    .primary-btn, 
+    .stFormSubmitButton>button, 
+    div.stButton > button:first-child { 
+        background-color: #0055FF !important; 
+        color: white !important; 
+        text-align: center !important; 
+        border-radius: 8px !important; 
+        padding: 12px 24px !important; 
+        font-weight: 600 !important; 
+        border: none !important;
+        width: 100%; 
+        box-shadow: 0 10px 20px rgba(0,85,255,0.2) !important;
     }
     div[data-testid="stHorizontalBlock"] .stButton>button:hover, .stFormSubmitButton>button:hover {
         background-color: #0044cc !important; transform: translateY(-2px);
+    }
+    
+    /* Exception pour les boutons de la sidebar (remise à zéro du style bleu global) */
+    section[data-testid="stSidebar"] .stButton>button {
+        background-color: transparent !important;
+        color: #444 !important;
+        box-shadow: none !important;
+        text-align: left !important;
+    }
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        background-color: #F0F5FF !important;
+        color: #0055FF !important;
     }
 
     /* CARTES STATS */
@@ -76,7 +109,6 @@ st.markdown("""
     }
     .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 8px; font-weight: 600; }
     .kpi-value { font-size: 28px; font-weight: 700; color: #0055FF; }
-    .kpi-sub { font-size: 11px; color: #888; margin-top: 5px; }
     
     /* INPUTS */
     .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
@@ -91,12 +123,14 @@ st.markdown("""
 # =========================================================
 
 def login_screen():
+    # Header simple
     c1, c2 = st.columns([1, 6])
     with c1:
         st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
     with c2:
+        # Alignement droite
         sc1, sc2, sc3 = st.columns([6, 1, 1])
-        if sc3.button("Se connecter"): st.session_state.auth_view = 'login'; st.rerun()
+        if sc3.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
 
     st.write(""); st.write(""); st.write(""); st.write("")
     st.markdown("<div class='hero-title'>L'Intelligence Artificielle pour<br><span style='color:#0055FF'>vos marchés publics.</span></div>", unsafe_allow_html=True)
@@ -104,14 +138,16 @@ def login_screen():
     
     c_cta1, c_cta2, c_cta3 = st.columns([1, 1, 1])
     with c_cta2:
-        if st.button("CRÉER UN COMPTE", type="primary"):
-            st.session_state.auth_view = 'signup'
-            st.rerun()
-        st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès gratuit • Paiement à la consommation IA</div>", unsafe_allow_html=True)
+        # Utilisation d'un bouton form pour forcer le style bleu
+        with st.form("hero_cta"):
+            if st.form_submit_button("CRÉER UN COMPTE GRATUIT"):
+                st.session_state.auth_view = 'signup'
+                st.rerun()
+        st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès immédiat • Paiement à la consommation IA</div>", unsafe_allow_html=True)
 
     st.write(""); st.write(""); st.write("")
     
-    # FEATURES GRID (ICONES SVG PROPRES)
+    # FEATURES GRID
     c_f1, c_f2, c_f3 = st.columns(3)
     with c_f1:
         st.markdown("""
@@ -158,7 +194,10 @@ def auth_form(mode):
             st.text_input("Email professionnel")
             st.text_input("Mot de passe", type="password")
             if mode == "Créer un compte": st.text_input("Nom de l'entreprise")
-            if st.form_submit_button("VALIDER"): st.session_state.authenticated = True; st.rerun()
+            btn_text = "SE CONNECTER" if mode == "Se connecter" else "S'INSCRIRE"
+            if st.form_submit_button(btn_text): 
+                st.session_state.authenticated = True
+                st.rerun()
         if st.button("← Retour"): st.session_state.auth_view = 'landing'; st.rerun()
 
 if not st.session_state.authenticated:
@@ -244,7 +283,7 @@ if st.session_state.page == 'dashboard':
     total = sum(p['budget'] for p in st.session_state.projects)
     c1, c2, c3 = st.columns(3)
     with c1: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">CA PRÉVISIONNEL</div><div class="kpi-value">{total:,.0f} €</div></div>""", unsafe_allow_html=True)
-    with c2: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">TAUX CONVERSION</div><div class="kpi-value">32%</div></div>""", unsafe_allow_html=True)
+    with c2: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">TAUX DE SUCCÈS</div><div class="kpi-value">32%</div></div>""", unsafe_allow_html=True)
     with c3: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">DOSSIERS ACTIFS</div><div class="kpi-value">{len(st.session_state.projects)}</div></div>""", unsafe_allow_html=True)
     
     st.write(""); st.write(""); st.caption("APPELS D'OFFRE / DOSSIERS")
@@ -285,7 +324,9 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    res = analyze(img, f"Projet : {p['name']}. Extrais Matching, RSE, Délai, Pénalités.")
+                    # On envoie les critères personnalisés à l'IA
+                    criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
+                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
@@ -315,28 +356,73 @@ elif st.session_state.page == 'studio':
     with c2:
         if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PARAMETRES
+# PARAMETRES (CRITERES COMPLETS)
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
-    t1, t2, t3, t4 = st.tabs(["Critères", "Compte", "Mentions", "CERFA"])
+    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Compte", "Mentions Légales", "Données CERFA"])
+    
+    # ONGLETS CRITERES ENRICHI
     with t1:
-        c_add, c_btn = st.columns([3, 1])
-        new_skill = c_add.text_input("Nouvelle compétence", label_visibility="collapsed")
-        if c_btn.button("AJOUTER"):
-            if new_skill: st.session_state.user_skills.append(new_skill); st.rerun()
-        for s in st.session_state.user_skills: st.markdown(f"<span class='skill-tag'>{s}</span>", unsafe_allow_html=True)
-        if st.button("Effacer tout"): st.session_state.user_skills = []; st.rerun()
-    with t2: st.info("Compte PRO Actif")
-    with t3: st.text_area("Texte légal", height=100)
+        st.subheader("Critères d'analyse IA")
+        st.info("Définissez ici les seuils d'alerte pour l'analyse automatique des appels d'offres.")
+        
+        c_left, c_right = st.columns(2)
+        with c_left:
+            st.markdown("##### 1. Capacités Techniques")
+            new_skill = st.text_input("Ajouter une compétence clé", placeholder="Ex: Désamiantage...")
+            if st.button("Ajouter Compétence"):
+                if new_skill: st.session_state.user_criteria['skills'].append(new_skill); st.rerun()
+            
+            # Affichage Tags
+            tags_html = ""
+            for s in st.session_state.user_criteria['skills']: tags_html += f"<span class='skill-tag'>{s}</span>"
+            st.markdown(tags_html, unsafe_allow_html=True)
+            if st.button("Effacer compétences", key="del_skills"): st.session_state.user_criteria['skills'] = []; st.rerun()
+
+            st.write("")
+            st.markdown("##### 2. Exigences Financières")
+            st.session_state.user_criteria['min_daily_rate'] = st.number_input("Taux Journalier Minimum (€)", value=450)
+            st.session_state.user_criteria['min_turnover_required'] = st.number_input("Chiffre d'Affaires Minimum requis par le marché (ex: ne pas répondre si > 2M€)", value=0, help="L'IA vous alertera si le marché exige un CA supérieur à ce montant.")
+
+        with c_right:
+            st.markdown("##### 3. Contraintes Administratives")
+            certs = st.text_area("Certifications détenues (Qualibat, ISO...)", placeholder="Qualibat 1552, ISO 9001...")
+            st.session_state.user_criteria['certifications'] = certs.split('\n')
+            
+            st.write("")
+            st.markdown("##### 4. Risques")
+            st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max acceptées (%)", 0, 100, 5, help="L'IA signalera en ROUGE tout contrat dépassant ce pourcentage de pénalités.")
+            st.session_state.user_criteria['max_distance'] = st.slider("Rayon d'action max (km)", 0, 1000, 100)
+
+    with t2:
+        st.subheader("Gestion du compte")
+        st.info("Abonnement : PRO (Actif)")
+
+    # ONGLET LEGAL ENRICHI
+    with t3:
+        st.subheader("Mentions Légales des documents")
+        st.caption("Ce texte apparaîtra automatiquement en pied de page de vos devis et factures générés.")
+        st.text_area("Mentions légales (Footer)", height=100, placeholder="Ex: SAS au capital de 10.000€ - RCS Paris B 123 456 789 - TVA FR32...")
+        
+        st.write("---")
+        st.subheader("Conditions Générales de Vente (CGV)")
+        st.text_area("Texte complet des CGV", height=200)
+        
+        if st.button("Sauvegarder les textes"): st.success("Mentions légales mises à jour.")
+
     with t4:
         with st.form("cerfa"):
+            st.subheader("Données Administratives (DC1/DC2)")
             i = st.session_state.company_info
-            i['name'] = st.text_input("Dénomination", value=i['name'])
-            i['siret'] = st.text_input("SIRET", value=i['siret'])
-            i['address'] = st.text_input("Adresse", value=i['address'])
-            i['city'] = st.text_input("Ville", value=i['city'])
-            i['rep_legal'] = st.text_input("Représentant", value=i['rep_legal'])
             c1, c2 = st.columns(2)
+            with c1:
+                i['name'] = st.text_input("Dénomination", value=i['name'])
+                i['address'] = st.text_input("Adresse Siège", value=i['address'])
+                i['city'] = st.text_input("Ville", value=i['city'])
+            with c2:
+                i['siret'] = st.text_input("SIRET", value=i['siret'])
+                i['rep_legal'] = st.text_input("Représentant", value=i['rep_legal'])
+            c3, c4 = st.columns(2)
             i['ca_n1'] = c1.number_input("CA N-1", value=i['ca_n1'])
             i['ca_n2'] = c2.number_input("CA N-2", value=i['ca_n2'])
             if st.form_submit_button("SAUVEGARDER"): st.session_state.company_info = i; st.success("OK")
