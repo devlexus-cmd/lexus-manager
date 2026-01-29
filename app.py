@@ -23,7 +23,7 @@ PLANS = {
         "limit": 30, 
         "price": "15€", 
         "label": "Professionnel",
-        "link": "https://buy.stripe.com/votre_lien_pro_ici" # REMPLACER PAR VOTRE LIEN STRIPE
+        "link": "https://buy.stripe.com/3cIdR22u00uL2tB5BH08g00" # REMPLACER PAR VOTRE LIEN STRIPE
     },
     "ULTRA": {
         "limit": 999999, 
