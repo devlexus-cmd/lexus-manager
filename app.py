@@ -7,38 +7,29 @@ import io
 import datetime 
 from fpdf import FPDF
 
-# --- 0. SECURITÉ & DEPENDANCES ---
-# On tente d'importer Firebase. Si ça échoue (pas installé), on passe en mode local sans planter.
-try:
-    import firebase_admin
-    from firebase_admin import credentials, firestore
-    FIREBASE_AVAILABLE = True
-except ImportError:
-    FIREBASE_AVAILABLE = False
-
 # --- 1. CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="collapsed")
 
-# --- 2. CONFIGURATION BUSINESS (STRIPE & PLANS) ---
-# C'est ici que tu mettras tes vrais liens Stripe plus tard
+# --- 2. CONFIGURATION ABONNEMENTS (STRIPE) ---
+# C'est ici que la logique financière est stockée
 PLANS = {
     "GRATUIT": {
         "limit": 3, 
         "price": "0€", 
         "label": "Découverte",
-        "link": None # Pas de paiement
+        "link": None
     },
     "PRO": {
         "limit": 30, 
         "price": "15€", 
         "label": "Professionnel",
-        "link": "https://buy.stripe.com/test_pro" # REMPLACE PAR TON LIEN STRIPE PRO
+        "link": "https://buy.stripe.com/votre_lien_pro_ici" # REMPLACER PAR VOTRE LIEN STRIPE
     },
     "ULTRA": {
         "limit": 999999, 
         "price": "55€", 
         "label": "Illimité",
-        "link": "https://buy.stripe.com/test_ultra" # REMPLACE PAR TON LIEN STRIPE ULTRA
+        "link": "https://buy.stripe.com/votre_lien_ultra_ici" # REMPLACER PAR VOTRE LIEN STRIPE
     }
 }
 
@@ -50,26 +41,26 @@ if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'company_info' not in st.session_state: st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
-# État de l'abonnement (Simulé tant que Firebase n'est pas connecté)
+# Variables d'abonnement
 if 'subscription_plan' not in st.session_state: st.session_state.subscription_plan = "GRATUIT"
-if 'credits_used' not in st.session_state: st.session_state.credits_used = 0
+if 'credits_used' not in st.session_state: st.session_state.credits_used = 1
 
-# Base de données projets
+# Données persistantes
 if 'projects' not in st.session_state:
     st.session_state.projects = []
-
-if 'user_skills' not in st.session_state: st.session_state.user_skills = ["BTP", "Gestion de Projet"]
 if 'user_criteria' not in st.session_state:
     st.session_state.user_criteria = {
-        "skills": ["BTP", "Gestion de Projet"],
+        "skills": ["BTP", "Gestion"],
         "min_daily_rate": 450,
         "max_distance": 50,
         "certifications": [],
         "min_turnover_required": 0,
         "max_penalties": 5
     }
+if 'user_skills' not in st.session_state: 
+    st.session_state.user_skills = st.session_state.user_criteria['skills']
 
-# --- 4. CSS GLOBAL ---
+# --- 4. CSS GLOBAL (LANDING V10.5 RESTAURÉE) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -77,7 +68,7 @@ st.markdown("""
     /* BASE */
     .stApp { background-color: #FFFFFF; color: #111111; font-family: 'Inter', sans-serif; }
     
-    /* CACHER ELEMENTS */
+    /* CACHER ÉLÉMENTS PARASITES */
     .stApp > header { visibility: hidden; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
@@ -86,7 +77,25 @@ st.markdown("""
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    /* BOUTONS NAVIGATION */
+    /* LANDING PAGE STYLES (RESTAURÉS) */
+    .hero-title { 
+        font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
+    }
+    .hero-subtitle { 
+        font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
+    }
+    
+    /* FEATURES GRID (Clean sans emoji) */
+    .feature-card {
+        padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
+        height: 100%; display: flex; flex-direction: column; align-items: center;
+    }
+    .feature-card:hover { border-color: #0055FF; transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .feature-icon svg { width: 32px; height: 32px; stroke: #0055FF; margin-bottom: 20px; }
+    .feature-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: #000; }
+    .feature-desc { font-size: 14px; color: #666; line-height: 1.5; }
+
+    /* BOUTONS NAVIGATION APP */
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
     .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
     
@@ -111,7 +120,7 @@ st.markdown("""
         background-color: #F0F5FF !important; color: #0055FF !important;
     }
 
-    /* CARTES STATS (HTML FIXE) */
+    /* CARTES STATS */
     .kpi-card {
         background-color: white; border: 1px solid #E5E5E5; padding: 20px; 
         border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);
@@ -134,7 +143,7 @@ st.markdown("""
         border-radius: 20px; font-size: 10px; font-weight: bold;
         position: absolute; top: 20px; right: 20px;
     }
-
+    
     /* INPUTS */
     .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
     
@@ -144,7 +153,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION ===
+# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION (V10.5) ===
 # =========================================================
 
 def login_screen():
@@ -278,13 +287,12 @@ try:
 except: active_model = None
 
 def analyze(image, prompt):
-    # VÉRIFICATION BUSINESS : CRÉDITS
-    limit = PLANS[st.session_state.subscription_plan]['limit']
-    if st.session_state.credits_used >= limit:
-        return f"⚠️ LIMITE ATTEINTE ({limit} requêtes/semaine). Veuillez passer à l'abonnement supérieur dans l'onglet Paramètres."
-    
+    # CONTROLE ABONNEMENT
+    plan = PLANS[st.session_state.subscription_plan]
+    if st.session_state.credits_used >= plan['limit']:
+        return f"⚠️ LIMITE ATTEINTE : Vous avez utilisé vos {plan['limit']} analyses. Passez à l'offre supérieure."
+
     if not active_model: return "⚠️ Clé API invalide."
-    
     try:
         model = genai.GenerativeModel(active_model)
         res = model.generate_content([prompt, image]).text
@@ -300,10 +308,7 @@ with st.sidebar:
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
-    
-    # STATUS SERVEUR
-    status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
-    st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>Serveur : {API_STATUS}</div>", unsafe_allow_html=True)
 
 # --- PAGES ---
 
@@ -353,8 +358,9 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
+                    # CRITERES UTILISATEUR ENVOYÉS AU PROMPT
                     criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
-                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
+                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
@@ -387,42 +393,25 @@ elif st.session_state.page == 'studio':
 # PARAMETRES (AVEC GESTION ABONNEMENT)
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
-    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Mon Compte & Abo", "Mentions Légales", "Données CERFA"])
+    t1, t2, t3, t4 = st.tabs(["Critères & Compétences", "Mon Compte & Abo", "Mentions Légales", "Données CERFA"])
     
-    # 1. CRITÈRES EXPERTS (RESTAURÉ)
     with t1:
-        st.subheader("Critères d'analyse IA")
-        st.info("Définissez ici les seuils d'alerte pour l'analyse automatique.")
+        st.subheader("Mes Compétences")
+        c_add, c_btn = st.columns([3, 1])
+        new_skill = c_add.text_input("Nouvelle compétence", label_visibility="collapsed", placeholder="Ex: Maçonnerie...")
+        if c_btn.button("AJOUTER"):
+            if new_skill: st.session_state.user_skills.append(new_skill); st.rerun()
         
-        c_left, c_right = st.columns(2)
-        with c_left:
-            st.markdown("##### 1. Capacités Techniques")
-            new_skill = st.text_input("Ajouter une compétence clé", placeholder="Ex: Désamiantage...")
-            if st.button("Ajouter Compétence"):
-                if new_skill: st.session_state.user_criteria['skills'].append(new_skill); st.session_state.user_skills = st.session_state.user_criteria['skills']; st.rerun()
-            
-            tags_html = ""
-            for s in st.session_state.user_criteria['skills']: tags_html += f"<span class='skill-tag'>{s}</span>"
-            st.markdown(tags_html, unsafe_allow_html=True)
-            if st.button("Effacer compétences", key="del_skills"): 
-                st.session_state.user_criteria['skills'] = []
-                st.session_state.user_skills = []
-                st.rerun()
+        tags_html = ""
+        for s in st.session_state.user_skills: tags_html += f"<span class='skill-tag'>{s}</span>"
+        st.markdown(tags_html, unsafe_allow_html=True)
+        if st.button("Effacer tout"): st.session_state.user_skills = []; st.rerun()
 
-            st.write("")
-            st.markdown("##### 2. Exigences Financières")
-            st.session_state.user_criteria['min_daily_rate'] = st.number_input("Taux Journalier Minimum (€)", value=450)
-            st.session_state.user_criteria['min_turnover_required'] = st.number_input("Chiffre d'Affaires Minimum requis par le marché", value=0)
-
-        with c_right:
-            st.markdown("##### 3. Contraintes Administratives")
-            certs = st.text_area("Certifications détenues", placeholder="Qualibat 1552, ISO 9001...")
-            st.session_state.user_criteria['certifications'] = certs.split('\n')
-            
-            st.write("")
-            st.markdown("##### 4. Risques")
-            st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max acceptées (%)", 0, 100, 5)
-            st.session_state.user_criteria['max_distance'] = st.slider("Rayon d'action max (km)", 0, 1000, 100)
+        st.divider()
+        st.subheader("Critères Financiers")
+        st.number_input("Taux Journalier Minimum (€)", value=st.session_state.user_criteria['min_daily_rate'])
+        st.slider("Pénalités max acceptées (%)", 0, 20, 5)
+        st.number_input("Chiffre d'Affaires Minimum requis par le marché", value=0)
 
     # 2. MON COMPTE & ABO (3 OFFRES STRIPE)
     with t2:
@@ -452,7 +441,6 @@ elif st.session_state.page == 'settings':
             else:
                 if st.button("CHOISIR", key=f"btn_{key}"):
                     st.session_state.subscription_plan = key
-                    st.session_state.credits_limit = plan_data['limit']
                     st.rerun()
 
         with c_gratuit: show_plan("GRATUIT", PLANS["GRATUIT"], "#666")
@@ -462,21 +450,20 @@ elif st.session_state.page == 'settings':
         st.write("---")
         st.write("**Ma Consommation IA**")
         current_plan = PLANS[st.session_state.subscription_plan]
+        limit = current_plan['limit']
         
-        if current_plan['limit'] > 9000:
+        if limit > 9000:
              st.progress(0)
              st.caption("Illimité")
         else:
-            prog = min(st.session_state.credits_used / current_plan['limit'], 1.0)
+            prog = min(st.session_state.credits_used / limit, 1.0)
             st.progress(prog)
-            st.caption(f"{st.session_state.credits_used} / {current_plan['limit']} requêtes utilisées cette semaine")
+            st.caption(f"{st.session_state.credits_used} / {limit} requêtes utilisées cette semaine")
 
-    # 3. Mentions Légales
     with t3:
         st.subheader("Mentions Légales")
         st.text_area("Texte légal", height=100)
 
-    # 4. CERFA
     with t4:
         with st.form("cerfa"):
             st.subheader("Données Administratives (DC1/DC2)")
