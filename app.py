@@ -109,6 +109,7 @@ st.markdown("""
     }
     .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 8px; font-weight: 600; }
     .kpi-value { font-size: 28px; font-weight: 700; color: #0055FF; }
+    .kpi-sub { font-size: 11px; color: #888; margin-top: 5px; }
     
     /* INPUTS */
     .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
@@ -128,8 +129,8 @@ def login_screen():
     with c1:
         st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
     with c2:
-        # Alignement droite
-        sc1, sc2, sc3 = st.columns([6, 1, 1])
+        # Alignement droite - Colonnes élargies pour le bouton (5, 0.5, 1.5 au lieu de 6, 1, 1)
+        sc1, sc2, sc3 = st.columns([5, 0.5, 1.5])
         if sc3.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
 
     st.write(""); st.write(""); st.write(""); st.write("")
@@ -324,9 +325,7 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    # On envoie les critères personnalisés à l'IA
-                    criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
-                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
+                    res = analyze(img, f"Projet : {p['name']}. Extrais Matching, RSE, Délai, Pénalités.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
@@ -416,12 +415,12 @@ elif st.session_state.page == 'settings':
             i = st.session_state.company_info
             c1, c2 = st.columns(2)
             with c1:
-                i['name'] = st.text_input("Dénomination", value=i['name'])
+                i['name'] = st.text_input("Dénomination Sociale", value=i['name'])
                 i['address'] = st.text_input("Adresse Siège", value=i['address'])
-                i['city'] = st.text_input("Ville", value=i['city'])
+                i['city'] = st.text_input("Code Postal / Ville", value=i['city'])
             with c2:
                 i['siret'] = st.text_input("SIRET", value=i['siret'])
-                i['rep_legal'] = st.text_input("Représentant", value=i['rep_legal'])
+                i['rep_legal'] = st.text_input("Représentant Légal", value=i['rep_legal'])
             c3, c4 = st.columns(2)
             i['ca_n1'] = c1.number_input("CA N-1", value=i['ca_n1'])
             i['ca_n2'] = c2.number_input("CA N-2", value=i['ca_n2'])
