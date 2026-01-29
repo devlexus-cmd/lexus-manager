@@ -18,17 +18,13 @@ if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'company_info' not in st.session_state: st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
-# Base de données projets
+# Base de données projets VIERGE (Plus d'exemples)
 if 'projects' not in st.session_state:
-    st.session_state.projects = [
-        {"id": 1, "name": "Audit Financier 2026", "client": "Groupe Alpha", "budget": 12500, "status": "EN COURS", 
-         "analysis_done": False, "match": 95, "rse": "Fort", "delay": "3 mois", "penalty": "Néant"},
-        {"id": 2, "name": "Rénovation Siège", "client": "BTP Corp", "budget": 45000, "status": "ANALYSE", 
-         "analysis_done": False, "match": 0, "rse": "-", "delay": "-", "penalty": "-"}
-    ]
+    st.session_state.projects = [] 
+
 if 'user_skills' not in st.session_state: st.session_state.user_skills = ["BTP", "Gestion"]
 
-# --- 3. CSS GLOBAL (LANDING + APP + FIX AFFICHAGE) ---
+# --- 3. CSS GLOBAL (LANDING + APP) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -36,16 +32,25 @@ st.markdown("""
     /* BASE */
     .stApp { background-color: #FFFFFF; color: #111111; font-family: 'Inter', sans-serif; }
     
-    /* LOGO LEXUS */
+    /* LOGO LEXUS (Commun) */
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    /* LANDING PAGE */
-    .hero-title { font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center; }
-    .hero-subtitle { font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5; }
-    .feature-card { padding: 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s; }
+    /* LANDING PAGE STYLES */
+    .hero-title { 
+        font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
+    }
+    .hero-subtitle { 
+        font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
+    }
+    
+    /* FEATURES GRID (Clean sans emoji) */
+    .feature-card {
+        padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
+        height: 100%; display: flex; flex-direction: column; align-items: center;
+    }
     .feature-card:hover { border-color: #0055FF; transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-    .feature-icon { font-size: 24px; color: #0055FF; margin-bottom: 15px; }
+    .feature-icon svg { width: 32px; height: 32px; stroke: #0055FF; margin-bottom: 20px; }
     .feature-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: #000; }
     .feature-desc { font-size: 14px; color: #666; line-height: 1.5; }
 
@@ -59,9 +64,11 @@ st.markdown("""
         border-radius: 8px !important; padding: 12px 24px !important; font-weight: 600 !important; border: none !important;
         width: 100%; box-shadow: 0 10px 20px rgba(0,85,255,0.2) !important;
     }
-    div[data-testid="stHorizontalBlock"] .stButton>button:hover, .stFormSubmitButton>button:hover { background-color: #0044cc !important; transform: translateY(-2px); }
+    div[data-testid="stHorizontalBlock"] .stButton>button:hover, .stFormSubmitButton>button:hover {
+        background-color: #0044cc !important; transform: translateY(-2px);
+    }
 
-    /* CARTES STATS (HTML CUSTOM - INDÉFORMABLE) */
+    /* CARTES STATS */
     .kpi-card {
         background-color: white; border: 1px solid #E5E5E5; padding: 20px; 
         border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);
@@ -85,7 +92,8 @@ st.markdown("""
 
 def login_screen():
     c1, c2 = st.columns([1, 6])
-    with c1: st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
+    with c1:
+        st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
     with c2:
         sc1, sc2, sc3 = st.columns([6, 1, 1])
         if sc3.button("Se connecter"): st.session_state.auth_view = 'login'; st.rerun()
@@ -96,15 +104,48 @@ def login_screen():
     
     c_cta1, c_cta2, c_cta3 = st.columns([1, 1, 1])
     with c_cta2:
-        if st.button("CRÉER UN COMPTE", type="primary"): st.session_state.auth_view = 'signup'; st.rerun()
+        if st.button("CRÉER UN COMPTE", type="primary"):
+            st.session_state.auth_view = 'signup'
+            st.rerun()
         st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès gratuit • Paiement à la consommation IA</div>", unsafe_allow_html=True)
 
     st.write(""); st.write(""); st.write("")
+    
+    # FEATURES GRID (ICONES SVG PROPRES)
     c_f1, c_f2, c_f3 = st.columns(3)
-    with c_f1: st.markdown("""<div class="feature-card"><div class="feature-icon">⚡️</div><div class="feature-title">Analyse Sémantique</div><div class="feature-desc">Notre IA lit et comprend vos cahiers des charges (DCE). Elle extrait instantanément les critères et délais.</div></div>""", unsafe_allow_html=True)
-    with c_f2: st.markdown("""<div class="feature-card"><div class="feature-icon">📄</div><div class="feature-title">Gestion Administrative</div><div class="feature-desc">Fini la saisie manuelle. Lexus pré-remplit vos DC1, DC2 et documents de conformité.</div></div>""", unsafe_allow_html=True)
-    with c_f3: st.markdown("""<div class="feature-card"><div class="feature-icon">📊</div><div class="feature-title">Pilotage Financier</div><div class="feature-desc">Un tableau de bord clair pour suivre vos taux de succès et votre CA prévisionnel.</div></div>""", unsafe_allow_html=True)
-    st.write(""); st.markdown("<hr style='border:0; border-top:1px solid #eee; margin: 50px 0;'>", unsafe_allow_html=True)
+    with c_f1:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </div>
+            <div class="feature-title">Analyse Sémantique</div>
+            <div class="feature-desc">Notre IA lit et comprend vos cahiers des charges. Elle extrait instantanément les critères et délais.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_f2:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </div>
+            <div class="feature-title">Gestion Administrative</div>
+            <div class="feature-desc">Fini la saisie manuelle. Lexus pré-remplit vos DC1, DC2 et documents de conformité.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_f3:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
+            </div>
+            <div class="feature-title">Pilotage Financier</div>
+            <div class="feature-desc">Un tableau de bord clair pour suivre vos taux de succès et votre CA prévisionnel.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.write("")
+    st.markdown("<hr style='border:0; border-top:1px solid #eee; margin: 50px 0;'>", unsafe_allow_html=True)
     st.markdown("<div style='text-align:center; color:#888; font-size:12px;'>© 2026 LEXUS Enterprise.</div>", unsafe_allow_html=True)
 
 def auth_form(mode):
@@ -162,7 +203,7 @@ def create_pdf_dc(info, project):
     return bytes(pdf.output())
 
 # --- CONNEXION IA ---
-API_STATUS = "🔴 OFF"
+API_STATUS = "OFFLINE"
 try:
     api_key = st.secrets.get("GOOGLE_API_KEY", None)
     if api_key:
@@ -171,7 +212,7 @@ try:
         if "models/gemini-1.5-flash" in m: active_model = "models/gemini-1.5-flash"
         elif "models/gemini-1.5-pro" in m: active_model = "models/gemini-1.5-pro"
         else: active_model = m[0] if m else None
-        API_STATUS = "🟢 ONLINE"
+        API_STATUS = "ONLINE"
     else: active_model = None
 except: active_model = None
 
@@ -190,7 +231,10 @@ with st.sidebar:
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
-    st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>Serveur : {API_STATUS}</div>", unsafe_allow_html=True)
+    
+    # STATUS SERVEUR (SANS EMOJI)
+    status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
+    st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
 
 # --- PAGES ---
 
@@ -198,21 +242,24 @@ with st.sidebar:
 if st.session_state.page == 'dashboard':
     st.markdown(f"## Espace <span style='color:#0055FF'>{st.session_state.company_info['name']}</span>", unsafe_allow_html=True)
     total = sum(p['budget'] for p in st.session_state.projects)
-    
-    # CARTES HTML CUSTOM (FIX AFFICHAGE)
     c1, c2, c3 = st.columns(3)
     with c1: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">CA PRÉVISIONNEL</div><div class="kpi-value">{total:,.0f} €</div></div>""", unsafe_allow_html=True)
     with c2: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">TAUX CONVERSION</div><div class="kpi-value">32%</div></div>""", unsafe_allow_html=True)
     with c3: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">DOSSIERS ACTIFS</div><div class="kpi-value">{len(st.session_state.projects)}</div></div>""", unsafe_allow_html=True)
     
     st.write(""); st.write(""); st.caption("APPELS D'OFFRE / DOSSIERS")
-    for p in st.session_state.projects:
-        with st.container():
-            c1, c2, c3 = st.columns([3, 1, 1])
-            c1.markdown(f"**{p['name']}**<br><span style='color:#888; font-size:12px;'>{p['client']}</span>", unsafe_allow_html=True)
-            c2.markdown(f"<span style='color:#0055FF; font-weight:bold;'>{p['budget']:,.0f} €</span>", unsafe_allow_html=True)
-            if c3.button("Ouvrir", key=f"open_{p['id']}"): st.session_state.current_project = p; st.session_state.page = 'project'; st.rerun()
-            st.markdown("<hr style='margin:10px 0; border-color:#eee;'>", unsafe_allow_html=True)
+    
+    # Affichage des projets (ou message vide)
+    if not st.session_state.projects:
+        st.info("Aucun dossier en cours. Créez votre premier projet ci-dessous.")
+    else:
+        for p in st.session_state.projects:
+            with st.container():
+                c1, c2, c3 = st.columns([3, 1, 1])
+                c1.markdown(f"**{p['name']}**<br><span style='color:#888; font-size:12px;'>{p['client']}</span>", unsafe_allow_html=True)
+                c2.markdown(f"<span style='color:#0055FF; font-weight:bold;'>{p['budget']:,.0f} €</span>", unsafe_allow_html=True)
+                if c3.button("Ouvrir", key=f"open_{p['id']}"): st.session_state.current_project = p; st.session_state.page = 'project'; st.rerun()
+                st.markdown("<hr style='margin:10px 0; border-color:#eee;'>", unsafe_allow_html=True)
             
     with st.expander("Ajouter un nouvel appel d'offre +"):
         with st.form("new_ao"):
@@ -242,16 +289,13 @@ elif st.session_state.page == 'project':
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
-            # CARTES HTML CUSTOM (FIX AFFICHAGE ICI AUSSI)
             c1, c2, c3, c4 = st.columns(4)
             with c1: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>MATCHING</div><div class='kpi-value'>{p['match']}%</div></div>", unsafe_allow_html=True)
             with c2: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>RSE</div><div class='kpi-value'>{p['rse']}</div></div>", unsafe_allow_html=True)
             with c3: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>DÉLAI</div><div class='kpi-value'>{p['delay']}</div></div>", unsafe_allow_html=True)
             with c4: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>PÉNALITÉS</div><div class='kpi-value'>{p['penalty']}</div></div>", unsafe_allow_html=True)
-            
-            st.write("")
             with st.expander("Voir le Compte Rendu Détaillé", expanded=True):
-                if f"res_{p['id']}" in st.session_state: st.write(st.session_state[f"res_{p['id']}"])
+                 if f"res_{p['id']}" in st.session_state: st.write(st.session_state[f"res_{p['id']}"])
             st.write("---")
             st.subheader("Administratif")
             pdf_data = create_pdf_dc(st.session_state.company_info, p)
