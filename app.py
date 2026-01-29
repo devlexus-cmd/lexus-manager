@@ -18,6 +18,11 @@ if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'company_info' not in st.session_state: st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
+# Gestion Abonnement & Crédits
+if 'subscription_plan' not in st.session_state: st.session_state.subscription_plan = "BUSINESS"
+if 'credits_used' not in st.session_state: st.session_state.credits_used = 45
+if 'credits_total' not in st.session_state: st.session_state.credits_total = 500
+
 # Données persistantes
 if 'projects' not in st.session_state:
     st.session_state.projects = []
@@ -116,6 +121,25 @@ st.markdown("""
     
     /* TAGS */
     .skill-tag { display: inline-block; padding: 5px 10px; margin: 2px; background: #F0F5FF; color: #0055FF; border-radius: 15px; font-size: 12px; font-weight: bold; border: 1px solid #0055FF20; }
+    
+    /* SUBSCRIPTION CARD */
+    .sub-card {
+        background-color: #121214; 
+        color: white;
+        padding: 25px; 
+        border-radius: 15px; 
+        border: 1px solid #0055FF;
+        position: relative;
+        overflow: hidden;
+    }
+    .sub-name { color: #0055FF; font-size: 14px; font-weight: 800; letter-spacing: 2px; margin-bottom: 10px; }
+    .sub-price { font-size: 32px; font-weight: 700; margin-bottom: 5px; }
+    .sub-period { font-size: 14px; color: #888; font-weight: 400; }
+    .sub-badge {
+        background-color: #00C853; color: white; padding: 4px 10px; 
+        border-radius: 20px; font-size: 10px; font-weight: bold;
+        position: absolute; top: 20px; right: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -355,73 +379,84 @@ elif st.session_state.page == 'studio':
     with c2:
         if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PARAMETRES (CRITERES COMPLETS)
+# PARAMETRES (NOUVEAU : GESTION ABONNEMENT)
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
-    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Compte", "Mentions Légales", "Données CERFA"])
+    t1, t2, t3, t4 = st.tabs(["Critères & Compétences", "Mon Compte & Abo", "Mentions Légales", "Données CERFA"])
     
-    # ONGLETS CRITERES ENRICHI
+    # 1. Critères
     with t1:
-        st.subheader("Critères d'analyse IA")
-        st.info("Définissez ici les seuils d'alerte pour l'analyse automatique des appels d'offres.")
+        st.subheader("Mes Compétences")
+        c_add, c_btn = st.columns([3, 1])
+        new_skill = c_add.text_input("Nouvelle compétence", label_visibility="collapsed", placeholder="Ex: Maçonnerie...")
+        if c_btn.button("AJOUTER"):
+            if new_skill: st.session_state.user_skills.append(new_skill); st.rerun()
         
-        c_left, c_right = st.columns(2)
-        with c_left:
-            st.markdown("##### 1. Capacités Techniques")
-            new_skill = st.text_input("Ajouter une compétence clé", placeholder="Ex: Désamiantage...")
-            if st.button("Ajouter Compétence"):
-                if new_skill: st.session_state.user_criteria['skills'].append(new_skill); st.rerun()
-            
-            # Affichage Tags
-            tags_html = ""
-            for s in st.session_state.user_criteria['skills']: tags_html += f"<span class='skill-tag'>{s}</span>"
-            st.markdown(tags_html, unsafe_allow_html=True)
-            if st.button("Effacer compétences", key="del_skills"): st.session_state.user_criteria['skills'] = []; st.rerun()
+        tags_html = ""
+        for s in st.session_state.user_skills: tags_html += f"<span class='skill-tag'>{s}</span>"
+        st.markdown(tags_html, unsafe_allow_html=True)
+        if st.button("Effacer tout"): st.session_state.user_skills = []; st.rerun()
+        
+        st.divider()
+        st.subheader("Critères Financiers")
+        st.number_input("Taux Journalier Minimum (€)", value=st.session_state.user_criteria['min_daily_rate'])
+        st.slider("Pénalités max acceptées (%)", 0, 20, 5)
 
-            st.write("")
-            st.markdown("##### 2. Exigences Financières")
-            st.session_state.user_criteria['min_daily_rate'] = st.number_input("Taux Journalier Minimum (€)", value=450)
-            st.session_state.user_criteria['min_turnover_required'] = st.number_input("Chiffre d'Affaires Minimum requis par le marché (ex: ne pas répondre si > 2M€)", value=0, help="L'IA vous alertera si le marché exige un CA supérieur à ce montant.")
-
-        with c_right:
-            st.markdown("##### 3. Contraintes Administratives")
-            certs = st.text_area("Certifications détenues (Qualibat, ISO...)", placeholder="Qualibat 1552, ISO 9001...")
-            st.session_state.user_criteria['certifications'] = certs.split('\n')
-            
-            st.write("")
-            st.markdown("##### 4. Risques")
-            st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max acceptées (%)", 0, 100, 5, help="L'IA signalera en ROUGE tout contrat dépassant ce pourcentage de pénalités.")
-            st.session_state.user_criteria['max_distance'] = st.slider("Rayon d'action max (km)", 0, 1000, 100)
-
+    # 2. Mon Compte (NOUVEAU DESIGN ABONNEMENT)
     with t2:
-        st.subheader("Gestion du compte")
-        st.info("Abonnement : PRO (Actif)")
+        st.subheader("Mon Abonnement")
+        
+        # Carte Plan
+        c_plan, c_usage = st.columns([1, 1])
+        
+        with c_plan:
+            st.markdown(f"""
+            <div class="sub-card">
+                <div class="sub-name">{st.session_state.subscription_plan}</div>
+                <div class="sub-price">99€ <span class="sub-period">/ mois</span></div>
+                <div class="sub-badge">ACTIF</div>
+                <div style="margin-top:20px; font-size:13px; color:#aaa;">
+                    • Accès illimité au Dashboard<br>
+                    • Analyse IA Illimitée<br>
+                    • Génération PDF
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.write("")
+            c_btn1, c_btn2 = st.columns(2)
+            c_btn1.button("Changer de plan")
+            c_btn2.button("Factures")
 
-    # ONGLET LEGAL ENRICHI
+        with c_usage:
+            st.write("**Consommation Crédits IA**")
+            st.progress(st.session_state.credits_used / st.session_state.credits_total)
+            st.caption(f"{st.session_state.credits_used} / {st.session_state.credits_total} requêtes utilisées")
+            
+            st.info("Prochain renouvellement : 28 Fév 2026")
+
+    # 3. Mentions Légales
     with t3:
-        st.subheader("Mentions Légales des documents")
-        st.caption("Ce texte apparaîtra automatiquement en pied de page de vos devis et factures générés.")
-        st.text_area("Mentions légales (Footer)", height=100, placeholder="Ex: SAS au capital de 10.000€ - RCS Paris B 123 456 789 - TVA FR32...")
-        
-        st.write("---")
-        st.subheader("Conditions Générales de Vente (CGV)")
-        st.text_area("Texte complet des CGV", height=200)
-        
-        if st.button("Sauvegarder les textes"): st.success("Mentions légales mises à jour.")
+        st.subheader("Mentions Légales")
+        st.text_area("Texte légal", height=100)
 
+    # 4. CERFA
     with t4:
-        with st.form("cerfa"):
-            st.subheader("Données Administratives (DC1/DC2)")
-            i = st.session_state.company_info
+        st.subheader("Données Administratives (DC1/DC2)")
+        with st.form("cerfa_form"):
+            info = st.session_state.company_info
             c1, c2 = st.columns(2)
             with c1:
-                i['name'] = st.text_input("Dénomination Sociale", value=i['name'])
-                i['address'] = st.text_input("Adresse Siège", value=i['address'])
-                i['city'] = st.text_input("Code Postal / Ville", value=i['city'])
+                info['name'] = st.text_input("Dénomination Sociale", value=info['name'])
+                info['address'] = st.text_input("Adresse Siège", value=info['address'])
+                info['city'] = st.text_input("Code Postal / Ville", value=info['city'])
             with c2:
-                i['siret'] = st.text_input("SIRET", value=i['siret'])
-                i['rep_legal'] = st.text_input("Représentant Légal", value=i['rep_legal'])
+                info['siret'] = st.text_input("Numéro SIRET", value=info['siret'])
+                info['rep_legal'] = st.text_input("Représentant Légal", value=info['rep_legal'])
             c3, c4 = st.columns(2)
-            i['ca_n1'] = c1.number_input("CA N-1", value=i['ca_n1'])
-            i['ca_n2'] = c2.number_input("CA N-2", value=i['ca_n2'])
-            if st.form_submit_button("SAUVEGARDER"): st.session_state.company_info = i; st.success("OK")
+            info['ca_n1'] = c3.number_input("CA N-1 (€)", value=info['ca_n1'])
+            info['ca_n2'] = c4.number_input("CA N-2 (€)", value=info['ca_n2'])
+            
+            if st.form_submit_button("ENREGISTRER POUR PDF"):
+                st.session_state.company_info = info
+                st.success("Données sauvegardées !")
