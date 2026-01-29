@@ -7,10 +7,42 @@ import io
 import datetime 
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="collapsed")
+# --- 0. SECURITÉ & DEPENDANCES ---
+# On tente d'importer Firebase. Si ça échoue (pas installé), on passe en mode local sans planter.
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
 
-# --- 2. GESTION DE L'ÉTAT ---
+# --- 1. CONFIGURATION ---
+st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
+
+# --- 2. CONFIGURATION BUSINESS (STRIPE & PLANS) ---
+# C'est ici que tu mettras tes vrais liens Stripe plus tard
+PLANS = {
+    "GRATUIT": {
+        "limit": 3, 
+        "price": "0€", 
+        "label": "Découverte",
+        "link": None # Pas de paiement
+    },
+    "PRO": {
+        "limit": 30, 
+        "price": "15€", 
+        "label": "Professionnel",
+        "link": "https://buy.stripe.com/test_pro" # REMPLACE PAR TON LIEN STRIPE PRO
+    },
+    "ULTRA": {
+        "limit": 999999, 
+        "price": "55€", 
+        "label": "Illimité",
+        "link": "https://buy.stripe.com/test_ultra" # REMPLACE PAR TON LIEN STRIPE ULTRA
+    }
+}
+
+# --- 3. GESTION DE L'ÉTAT ---
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
 if 'user_name' not in st.session_state: st.session_state.user_name = "Client"
@@ -18,22 +50,15 @@ if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'company_info' not in st.session_state: st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
-# Gestion Abonnement & Crédits
+# État de l'abonnement (Simulé tant que Firebase n'est pas connecté)
 if 'subscription_plan' not in st.session_state: st.session_state.subscription_plan = "GRATUIT"
-if 'credits_used' not in st.session_state: st.session_state.credits_used = 1
+if 'credits_used' not in st.session_state: st.session_state.credits_used = 0
 
-# Configuration des plans
-PLANS = {
-    "GRATUIT": {"limit": 3, "price": "0€", "label": "Découverte"},
-    "PRO": {"limit": 30, "price": "15€", "label": "Professionnel"},
-    "ULTRA": {"limit": 999999, "price": "55€", "label": "Illimité"}
-}
-
-# Données persistantes
+# Base de données projets
 if 'projects' not in st.session_state:
     st.session_state.projects = []
 
-# Critères Détaillés (Restaurés)
+if 'user_skills' not in st.session_state: st.session_state.user_skills = ["BTP", "Gestion de Projet"]
 if 'user_criteria' not in st.session_state:
     st.session_state.user_criteria = {
         "skills": ["BTP", "Gestion de Projet"],
@@ -43,11 +68,8 @@ if 'user_criteria' not in st.session_state:
         "min_turnover_required": 0,
         "max_penalties": 5
     }
-# Correction init skills pour l'affichage
-if 'user_skills' not in st.session_state: 
-    st.session_state.user_skills = st.session_state.user_criteria['skills']
 
-# --- 3. CSS GLOBAL (LANDING + APP) ---
+# --- 4. CSS GLOBAL ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -64,22 +86,6 @@ st.markdown("""
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    /* LANDING PAGE STYLES (Restaurés) */
-    .hero-title { 
-        font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
-    }
-    .hero-subtitle { 
-        font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
-    }
-    .feature-card {
-        padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
-        height: 100%; display: flex; flex-direction: column; align-items: center;
-    }
-    .feature-card:hover { border-color: #0055FF; transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-    .feature-icon svg { width: 32px; height: 32px; stroke: #0055FF; margin-bottom: 20px; }
-    .feature-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: #000; }
-    .feature-desc { font-size: 14px; color: #666; line-height: 1.5; }
-
     /* BOUTONS NAVIGATION */
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
     .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
@@ -128,10 +134,6 @@ st.markdown("""
         border-radius: 20px; font-size: 10px; font-weight: bold;
         position: absolute; top: 20px; right: 20px;
     }
-    .plan-option {
-        border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-bottom: 10px; cursor: pointer; transition: 0.2s;
-    }
-    .plan-option:hover { border-color: #0055FF; background-color: #F8F9FA; }
 
     /* INPUTS */
     .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
@@ -142,7 +144,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === PARTIE 1 : LANDING PAGE (RESTAURÉE) ===
+# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION ===
 # =========================================================
 
 def login_screen():
@@ -163,7 +165,7 @@ def login_screen():
             if st.form_submit_button("CRÉER UN COMPTE GRATUIT"):
                 st.session_state.auth_view = 'signup'
                 st.rerun()
-        st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès gratuit • Paiement à la consommation IA</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès immédiat • Paiement à la consommation IA</div>", unsafe_allow_html=True)
 
     st.write(""); st.write(""); st.write("")
     
@@ -276,16 +278,17 @@ try:
 except: active_model = None
 
 def analyze(image, prompt):
-    # Vérification des crédits
+    # VÉRIFICATION BUSINESS : CRÉDITS
     limit = PLANS[st.session_state.subscription_plan]['limit']
     if st.session_state.credits_used >= limit:
-        return "⚠️ LIMITE ATTEINTE : Passez à l'abonnement supérieur pour continuer."
+        return f"⚠️ LIMITE ATTEINTE ({limit} requêtes/semaine). Veuillez passer à l'abonnement supérieur dans l'onglet Paramètres."
     
     if not active_model: return "⚠️ Clé API invalide."
+    
     try:
         model = genai.GenerativeModel(active_model)
         res = model.generate_content([prompt, image]).text
-        st.session_state.credits_used += 1 # Décompte du crédit
+        st.session_state.credits_used += 1 # Débit
         return res
     except Exception as e: return f"Erreur : {str(e)}"
 
@@ -381,7 +384,7 @@ elif st.session_state.page == 'studio':
     with c2:
         if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PARAMETRES (VERSION COMPLETE ET RESTAURÉE)
+# PARAMETRES (AVEC GESTION ABONNEMENT)
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
     t1, t2, t3, t4 = st.tabs(["Critères Experts", "Mon Compte & Abo", "Mentions Légales", "Données CERFA"])
@@ -421,14 +424,14 @@ elif st.session_state.page == 'settings':
             st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max acceptées (%)", 0, 100, 5)
             st.session_state.user_criteria['max_distance'] = st.slider("Rayon d'action max (km)", 0, 1000, 100)
 
-    # 2. MON COMPTE & ABO (3 OFFRES)
+    # 2. MON COMPTE & ABO (3 OFFRES STRIPE)
     with t2:
         st.subheader("Mon Abonnement")
         
         # Affichage des 3 plans
         c_gratuit, c_pro, c_ultra = st.columns(3)
         
-        def show_plan(key, name, price, credits, color):
+        def show_plan(key, plan_data, color):
             is_active = st.session_state.subscription_plan == key
             border = f"border: 2px solid {color};" if is_active else "border: 1px solid #333;"
             bg = "#1a1a1a" if is_active else "#f9f9f9"
@@ -436,33 +439,37 @@ elif st.session_state.page == 'settings':
             
             st.markdown(f"""
             <div style="background-color: {bg}; color: {txt}; padding: 20px; border-radius: 12px; {border} text-align: center;">
-                <div style="font-weight: bold; font-size: 16px; color: {color};">{name}</div>
-                <div style="font-size: 28px; font-weight: 700; margin: 10px 0;">{price}</div>
-                <div style="font-size: 12px; margin-bottom: 15px;">{credits} requêtes / semaine</div>
+                <div style="font-weight: bold; font-size: 16px; color: {color};">{plan_data['label']}</div>
+                <div style="font-size: 28px; font-weight: 700; margin: 10px 0;">{plan_data['price']}</div>
+                <div style="font-size: 12px; margin-bottom: 15px;">{plan_data['limit']} requêtes / semaine</div>
             </div>
             """, unsafe_allow_html=True)
             
             if is_active:
                 st.button("ACTUEL", key=f"btn_{key}", disabled=True)
+            elif plan_data['link']:
+                st.link_button("CHOISIR", plan_data['link'])
             else:
                 if st.button("CHOISIR", key=f"btn_{key}"):
                     st.session_state.subscription_plan = key
-                    st.session_state.credits_limit = PLANS[key]["limit"]
+                    st.session_state.credits_limit = plan_data['limit']
                     st.rerun()
 
-        with c_gratuit: show_plan("GRATUIT", "DÉCOUVERTE", "0€", "3", "#666")
-        with c_pro: show_plan("PRO", "PROFESSIONNEL", "15€", "30", "#0055FF")
-        with c_ultra: show_plan("ULTRA", "ILLIMITÉ", "55€", "∞", "#00C853")
+        with c_gratuit: show_plan("GRATUIT", PLANS["GRATUIT"], "#666")
+        with c_pro: show_plan("PRO", PLANS["PRO"], "#0055FF")
+        with c_ultra: show_plan("ULTRA", PLANS["ULTRA"], "#00C853")
         
         st.write("---")
-        st.write("**Ma Consommation**")
-        if st.session_state.subscription_plan == "ULTRA":
-            st.progress(0)
-            st.caption("Illimité")
+        st.write("**Ma Consommation IA**")
+        current_plan = PLANS[st.session_state.subscription_plan]
+        
+        if current_plan['limit'] > 9000:
+             st.progress(0)
+             st.caption("Illimité")
         else:
-            prog = min(st.session_state.credits_used / st.session_state.credits_limit, 1.0)
+            prog = min(st.session_state.credits_used / current_plan['limit'], 1.0)
             st.progress(prog)
-            st.caption(f"{st.session_state.credits_used} / {st.session_state.credits_limit} requêtes utilisées")
+            st.caption(f"{st.session_state.credits_used} / {current_plan['limit']} requêtes utilisées cette semaine")
 
     # 3. Mentions Légales
     with t3:
