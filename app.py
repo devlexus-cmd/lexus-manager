@@ -3,14 +3,82 @@ import google.generativeai as genai
 from PIL import Image
 import pandas as pd
 import time
+import datetime
 import io
-import datetime 
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION SYSTEME ---
 st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
 
-# --- 2. MOTEUR PDF (Compatible FPDF2) ---
+# --- 2. AUTHENTIFICATION (MUR PAYANT) ---
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+def check_login(username, password):
+    # Simulation d'une base de données clients
+    # Dans le futur, on peut connecter ça à Firebase Auth ou Stripe
+    users = {
+        "admin": "lexus123",
+        "client_alpha": "projet2026",
+        "demo": "demo"
+    }
+    if username in users and users[username] == password:
+        st.session_state.authenticated = True
+        st.session_state.user_name = username.capitalize()
+        st.rerun()
+    else:
+        st.error("Identifiants incorrects ou abonnement expiré.")
+
+def show_login_screen():
+    st.markdown("""
+    <style>
+        .stApp { background-color: #0F1116; color: white; }
+        .login-box {
+            background-color: #161920;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #30363D;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 400px;
+            margin: 100px auto;
+        }
+        .login-logo { font-size: 40px; font-weight: 200; margin-bottom: 20px; }
+        .login-dot { color: #0055FF; font-weight: bold; }
+        .stTextInput input { background-color: #0a0a0b !important; color: white !important; border: 1px solid #333 !important; }
+        .stButton button { background-color: #0055FF !important; color: white !important; width: 100%; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.markdown("""
+        <br><br><br>
+        <div style="text-align: center;">
+            <span style="font-size: 40px; font-weight: 200;">L<span style="color:#888">A</span><span style="color:#0055FF; font-weight:bold">.</span></span>
+            <div style="letter-spacing: 4px; font-size: 12px; font-weight: 700; color: #666; margin-bottom: 30px;">LEXUS ENTERPRISE</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            st.markdown("##### Connexion Sécurisée")
+            u = st.text_input("Identifiant")
+            p = st.text_input("Mot de passe", type="password")
+            if st.form_submit_button("SE CONNECTER"):
+                check_login(u, p)
+        
+        st.info("🔒 Accès réservé aux abonnés Pro.")
+
+# SI PAS CONNECTÉ -> AFFICHER LOGIN ET STOPPER
+if not st.session_state.authenticated:
+    show_login_screen()
+    st.stop()
+
+# =========================================================
+# === DÉBUT DE L'APPLICATION (VISIBLE SEULEMENT SI CONNECTÉ) ===
+# =========================================================
+
+# --- 3. MOTEUR PDF ---
 class PDF(FPDF):
     def header(self):
         self.set_font('Helvetica', 'B', 10)
@@ -26,7 +94,6 @@ def create_pdf_dc(info, project):
     pdf.add_page()
     pdf.set_font("Helvetica", size=10)
     
-    # A - Acheteur
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 10, "A - IDENTIFICATION DU POUVOIR ADJUDICATEUR", fill=True, new_x="LMARGIN", new_y="NEXT")
@@ -35,21 +102,18 @@ def create_pdf_dc(info, project):
     pdf.multi_cell(0, 6, f"Client : {project['client']}\nObjet : {project['name']}\nDate : {date_str}")
     pdf.ln(5)
     
-    # B - Candidat
     pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 10, "B - IDENTIFICATION DU CANDIDAT", fill=True, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", size=10)
     pdf.multi_cell(0, 6, f"Dénomination : {info.get('name', '')}\nSIRET : {info.get('siret', '')}\nAdresse : {info.get('address', '')}, {info.get('city', '')}")
     pdf.ln(5)
     
-    # C - Capacités
     pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 10, "C - CAPACITÉS FINANCIÈRES", fill=True, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", size=10)
     pdf.multi_cell(0, 6, f"CA N-1 : {info.get('ca_n1', 0)} EUR\nCA N-2 : {info.get('ca_n2', 0)} EUR")
     pdf.ln(5)
     
-    # D - Signature
     pdf.set_font("Helvetica", 'B', 11)
     pdf.cell(0, 10, "D - ENGAGEMENT", fill=True, new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", size=10)
@@ -57,8 +121,8 @@ def create_pdf_dc(info, project):
     
     return bytes(pdf.output())
 
-# --- 3. CONNEXION IA ---
-API_STATUS = "🔴 DÉCONNECTÉ"
+# --- 4. CONNEXION IA ---
+API_STATUS = "DÉCONNECTÉ"
 try:
     api_key = st.secrets.get("GOOGLE_API_KEY", None)
     if api_key:
@@ -67,11 +131,11 @@ try:
         if "models/gemini-1.5-flash" in available_models: active_model = "models/gemini-1.5-flash"
         elif "models/gemini-1.5-pro" in available_models: active_model = "models/gemini-1.5-pro"
         else: active_model = available_models[0]
-        API_STATUS = "🟢 ONLINE"
+        API_STATUS = "ONLINE"
     else: active_model = None
 except Exception as e:
     active_model = None
-    API_STATUS = f"🟠 ERREUR"
+    API_STATUS = f"ERREUR"
 
 def analyze_ao_content(image, context):
     if not active_model: return "⚠️ Erreur : Clé API invalide."
@@ -89,7 +153,7 @@ def analyze_ao_content(image, context):
         return response.text
     except Exception as e: return f"Erreur technique Google : {str(e)}"
 
-# --- 4. GESTION DONNÉES ---
+# --- 5. GESTION DONNÉES ---
 if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'user_skills' not in st.session_state: st.session_state.user_skills = ["BTP", "Gestion de Projet"]
@@ -107,18 +171,22 @@ if 'projects' not in st.session_state:
          "analysis_done": False, "match": 0, "rse": "-", "delay": "-", "penalty": "-"}
     ]
 
-# --- 5. DESIGN SYSTEM ---
+# --- 6. DESIGN SYSTEM (APP INTERNE - BLANC) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@300;400;600&display=swap');
+    
+    /* On force le blanc UNIQUEMENT si connecté (le login reste sombre pour le style) */
     .stApp { background-color: #FFFFFF; color: #1a1a1a; font-family: 'Helvetica Neue', sans-serif; }
+    
+    /* Sidebar */
     section[data-testid="stSidebar"] { background-color: #F8F9FA; border-right: 1px solid #E5E5E5; }
     
     /* LOGO */
     .lexus-logo-text { font-weight: 300; font-size: 26px; letter-spacing: -1px; color: #000; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 30px; line-height: 0; }
     
-    /* BOUTONS */
+    /* BOUTONS NAVIGATION */
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
     .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
     
@@ -128,48 +196,25 @@ st.markdown("""
         border-radius: 8px !important; padding: 10px 20px !important; font-weight: 600 !important;
     }
     
+    /* CARTES */
+    div[data-testid="stMetric"] { 
+        background-color: white; border: 1px solid #E5E5E5; padding: 15px !important; 
+        border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); text-align: center;
+    }
+    div[data-testid="stMetricValue"] { color: #0055FF !important; font-size: 24px !important; font-weight: 700 !important; }
+    div[data-testid="stMetricLabel"] { color: #555 !important; font-size: 13px !important; font-weight: 500 !important; }
+    
     /* INPUTS */
     .stTextInput>div>div>input { 
-        background-color: #FAFAFA !important; 
-        color: #000000 !important;
-        border: 1px solid #E0E0E0 !important; 
-        border-radius: 8px !important; 
+        background-color: #FAFAFA !important; color: #000000 !important; border: 1px solid #E0E0E0 !important; border-radius: 8px !important; 
     }
     
     /* TAGS */
     .skill-tag { display: inline-block; padding: 5px 10px; margin: 2px; background: #F0F5FF; color: #0055FF; border-radius: 15px; font-size: 12px; font-weight: bold; border: 1px solid #0055FF20; }
-    
-    /* NOUVELLES CARTES CUSTOM (Pour remplacer les Metrics coupés) */
-    .custom-metric-card {
-        background-color: white;
-        border: 1px solid #E5E5E5;
-        border-radius: 12px;
-        padding: 20px 10px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
-    .custom-metric-label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #666;
-        text-transform: uppercase;
-        margin-bottom: 8px;
-        line-height: 1.2;
-    }
-    .custom-metric-value {
-        font-size: 26px;
-        font-weight: 800;
-        color: #0055FF;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 6. SIDEBAR ---
+# --- 7. SIDEBAR ---
 with st.sidebar:
     st.markdown("""
     <div style="margin-bottom:40px; padding-left:5px;">
@@ -178,23 +223,26 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
+    st.markdown(f"**Compte :** {st.session_state.get('user_name', 'Client')}")
+    
     if st.button("Tableau de bord"): st.session_state.page = 'dashboard'; st.rerun()
     if st.button("Lexus AI Studio"): st.session_state.page = 'studio'; st.rerun()
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
     
     st.markdown("---")
-    st.caption("v6.6 (Affichage Fix)")
-    st.markdown(f"<div style='font-size:11px; color:#999;'>Serveur : {API_STATUS}</div>", unsafe_allow_html=True)
+    if st.button("Se déconnecter"):
+        st.session_state.authenticated = False
+        st.rerun()
+    
+    st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>Serveur : {API_STATUS}</div>", unsafe_allow_html=True)
 
-# --- 7. PAGES ---
+# --- 8. PAGES ---
 
 # === DASHBOARD ===
 if st.session_state.page == 'dashboard':
     st.markdown(f"## Espace <span style='color:#0055FF'>{st.session_state.company_info['name']}</span>", unsafe_allow_html=True)
     
     total_budget = sum(p['budget'] for p in st.session_state.projects)
-    
-    # KPIs avec affichage standard (ici ça passait bien)
     c1, c2, c3 = st.columns(3)
     c1.metric("CA Prévisionnel", f"{total_budget:,.0f} €")
     c2.metric("Taux Conversion", "32%")
@@ -218,7 +266,7 @@ if st.session_state.page == 'dashboard':
     with st.expander("Ajouter un nouvel appel d'offre +"):
         with st.form("new_ao"):
             n_name = st.text_input("Nom de l'Appel d'Offre")
-            n_client = st.text_input("Client")
+            n_client = st.text_input("Client / Émetteur")
             n_budget = st.number_input("Budget Estimé (€)", value=0)
             if st.form_submit_button("Créer le dossier"):
                 new_id = len(st.session_state.projects) + 1
@@ -233,22 +281,18 @@ elif st.session_state.page == 'project':
     
     col_left, col_right = st.columns([1, 1], gap="large")
     
-    # GAUCHE : WORKFLOW
     with col_left:
         st.subheader("Flux de Travail")
         steps = ["Prise de contact", "Réunion équipe", "Collecte documents", "Estimation Devis", "Rédaction Mémoire", "Relire / Ajuster", "Docs Admin", "Envoi", "Réception", "Compléments", "Relance"]
         for step in steps: st.checkbox(step, key=f"w_{p['id']}_{step}")
 
-    # DROITE : ANALYSE & MÉTRIQUES
     with col_right:
         st.subheader("Analyse du Dossier")
-        
         uploaded_file = st.file_uploader("Importer le DCE (Image/JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         
         if uploaded_file:
             img = Image.open(uploaded_file)
             st.image(img, caption="Document chargé", width=200)
-            
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction des critères..."):
                     res = analyze_ao_content(img, f"Projet : {p['name']}")
@@ -262,61 +306,16 @@ elif st.session_state.page == 'project':
 
         if p['analysis_done']:
             st.success("Analyse terminée")
-            
-            # --- AFFICHAGE CORRIGÉ (CARTES HTML PERSONNALISÉES) ---
-            # Au lieu d'utiliser st.metric qui coupe le texte, on utilise notre propre HTML
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.markdown(f"""
-                <div class="custom-metric-card">
-                    <div class="custom-metric-label">Matching</div>
-                    <div class="custom-metric-value">{p['match']}%</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col2:
-                st.markdown(f"""
-                <div class="custom-metric-card">
-                    <div class="custom-metric-label">Score RSE</div>
-                    <div class="custom-metric-value">{p['rse']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col3:
-                st.markdown(f"""
-                <div class="custom-metric-card">
-                    <div class="custom-metric-label">Délai</div>
-                    <div class="custom-metric-value">{p['delay']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col4:
-                st.markdown(f"""
-                <div class="custom-metric-card">
-                    <div class="custom-metric-label">Pénalités</div>
-                    <div class="custom-metric-value">{p['penalty']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.write("")
-            
-            with st.expander("Voir le Compte Rendu Détaillé", expanded=True):
-                if f"res_{p['id']}" in st.session_state:
-                    st.write(st.session_state[f"res_{p['id']}"])
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Matching", f"{p['match']}%")
+            m2.metric("Score RSE", p['rse'])
+            m3.metric("Délai", p['delay'])
+            m4.metric("Pénalités", p['penalty'])
             
             st.write("---")
-            
-            # 3. GÉNÉRATION DC1/DC2 (PDF)
             st.subheader("Documents Administratifs")
             pdf_data = create_pdf_dc(st.session_state.company_info, p)
-            
-            st.download_button(
-                label="📄 TÉLÉCHARGER LE DC1 (PDF)",
-                data=pdf_data,
-                file_name=f"DC1_{p['name']}.pdf",
-                mime="application/pdf"
-            )
+            st.download_button(label="📄 TÉLÉCHARGER LE DC1 (PDF)", data=pdf_data, file_name=f"DC1_{p['name']}.pdf", mime="application/pdf")
 
 # === STUDIO IA ===
 elif st.session_state.page == 'studio':
