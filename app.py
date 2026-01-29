@@ -29,7 +29,7 @@ PLANS = {
         "limit": 999999, 
         "price": "55€", 
         "label": "Illimité",
-        "link": "https://buy.stripe.com/votre_lien_ultra_ici" # REMPLACER PAR VOTRE LIEN STRIPE
+        "link": "https://buy.stripe.com/3cI5kw8So1yPc4b6FL08g01" # REMPLACER PAR VOTRE LIEN STRIPE
     }
 }
 
