@@ -8,7 +8,7 @@ import datetime
 from fpdf import FPDF
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="collapsed")
 
 # --- 2. GESTION DE L'ÉTAT ---
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
@@ -36,7 +36,7 @@ if 'user_criteria' not in st.session_state:
         "max_penalties": 5
     }
 
-# --- 3. CSS GLOBAL (STYLE PROPRE & CARTES) ---
+# --- 3. CSS GLOBAL (LANDING + APP + FIX AFFICHAGE) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -44,16 +44,34 @@ st.markdown("""
     /* BASE */
     .stApp { background-color: #FFFFFF; color: #111111; font-family: 'Inter', sans-serif; }
     
-    /* CACHER ELEMENTS */
+    /* CACHER ELEMENTS PARASITES */
     .stApp > header { visibility: hidden; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     
-    /* LOGO */
+    /* LOGO LEXUS */
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    /* BOUTONS NAVIGATION */
+    /* LANDING PAGE STYLES */
+    .hero-title { 
+        font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
+    }
+    .hero-subtitle { 
+        font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
+    }
+    
+    /* FEATURES GRID */
+    .feature-card {
+        padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
+        height: 100%; display: flex; flex-direction: column; align-items: center;
+    }
+    .feature-card:hover { border-color: #0055FF; transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .feature-icon svg { width: 32px; height: 32px; stroke: #0055FF; margin-bottom: 20px; }
+    .feature-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: #000; }
+    .feature-desc { font-size: 14px; color: #666; line-height: 1.5; }
+
+    /* BOUTONS NAVIGATION APP */
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
     .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
     
@@ -111,14 +129,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION ===
+# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION (RESTAURÉE) ===
 # =========================================================
 
 def login_screen():
+    # Header simple
     c1, c2 = st.columns([1, 6])
     with c1:
         st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
     with c2:
+        # Alignement droite - Colonnes élargies pour le bouton (5, 0.5, 1.5 au lieu de 6, 1, 1)
         sc1, sc2, sc3 = st.columns([5, 0.5, 1.5])
         if sc3.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
 
@@ -128,11 +148,51 @@ def login_screen():
     
     c_cta1, c_cta2, c_cta3 = st.columns([1, 1, 1])
     with c_cta2:
+        # Utilisation d'un bouton form pour forcer le style bleu
         with st.form("hero_cta"):
             if st.form_submit_button("CRÉER UN COMPTE GRATUIT"):
                 st.session_state.auth_view = 'signup'
                 st.rerun()
         st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès immédiat • Paiement à la consommation IA</div>", unsafe_allow_html=True)
+
+    st.write(""); st.write(""); st.write("")
+    
+    # FEATURES GRID
+    c_f1, c_f2, c_f3 = st.columns(3)
+    with c_f1:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </div>
+            <div class="feature-title">Analyse Sémantique</div>
+            <div class="feature-desc">Notre IA lit et comprend vos cahiers des charges. Elle extrait instantanément les critères et délais.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_f2:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </div>
+            <div class="feature-title">Gestion Administrative</div>
+            <div class="feature-desc">Fini la saisie manuelle. Lexus pré-remplit vos DC1, DC2 et documents de conformité.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_f3:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
+            </div>
+            <div class="feature-title">Pilotage Financier</div>
+            <div class="feature-desc">Un tableau de bord clair pour suivre vos taux de succès et votre CA prévisionnel.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.write("")
+    st.markdown("<hr style='border:0; border-top:1px solid #eee; margin: 50px 0;'>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center; color:#888; font-size:12px;'>© 2026 LEXUS Enterprise.</div>", unsafe_allow_html=True)
 
 def auth_form(mode):
     c1, c2, c3 = st.columns([1, 1, 1])
@@ -220,7 +280,10 @@ with st.sidebar:
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
-    st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>Serveur : {API_STATUS}</div>", unsafe_allow_html=True)
+    
+    # STATUS SERVEUR (SANS EMOJI)
+    status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
+    st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
 
 # --- PAGES ---
 
@@ -235,6 +298,7 @@ if st.session_state.page == 'dashboard':
     
     st.write(""); st.write(""); st.caption("APPELS D'OFFRE / DOSSIERS")
     
+    # Affichage des projets (ou message vide)
     if not st.session_state.projects:
         st.info("Aucun dossier en cours. Créez votre premier projet ci-dessous.")
     else:
@@ -348,8 +412,8 @@ elif st.session_state.page == 'settings':
 
         with c_usage:
             st.write("**Consommation Crédits IA**")
-            st.progress(st.session_state.credits_used / st.session_state.credits_total)
-            st.caption(f"{st.session_state.credits_used} / {st.session_state.credits_total} requêtes utilisées")
+            st.progress(st.session_state.credits_used / st.session_state.credits_limit)
+            st.caption(f"{st.session_state.credits_used} / {st.session_state.credits_limit} requêtes utilisées")
             st.info("Renouvellement le 01/03/2026")
 
     with t3:
