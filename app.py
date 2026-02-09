@@ -10,44 +10,29 @@ import os
 from fpdf import FPDF
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(
-    layout="wide", 
-    page_title="LEXUS Enterprise | Logiciel de Marchés Publics",
-    page_icon="💎",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
 
 # --- 2. CONFIGURATION ABONNEMENTS ---
 PLANS = {
-    "GRATUIT": {
-        "limit": 3,
-        "price": "0€",
-        "label": "DÉCOUVERTE",
-        "link": None
-    },
-    "PRO": {
-        "limit": 30,
-        "price": "15€",
-        "label": "PROFESSIONNEL",
-        "link": "https://buy.stripe.com/votre_lien_pro" # REMPLACE CA
-    },
-    "ULTRA": {
-        "limit": 999999,
-        "price": "55€",
-        "label": "ILLIMITÉ",
-        "link": "https://buy.stripe.com/votre_lien_ultra" # REMPLACE CA
-    }
+    "GRATUIT": {"limit": 3, "price": "0€", "label": "DÉCOUVERTE", "link": None},
+    "PRO": {"limit": 30, "price": "15€", "label": "PROFESSIONNEL", "link": "https://buy.stripe.com/votre_lien_pro"},
+    "ULTRA": {"limit": 999999, "price": "55€", "label": "ILLIMITÉ", "link": "https://buy.stripe.com/votre_lien_ultra"}
 }
 
-# --- 3. SYSTÈME DE SAUVEGARDE UTILISATEURS ---
+# --- 3. SYSTÈME DE SAUVEGARDE (DATABASE JSON) ---
 USER_DB_FILE = "users.json"
 
-def load_users():
+def get_db():
+    # Force la relecture du fichier pour être toujours à jour
     if os.path.exists(USER_DB_FILE):
         try:
             with open(USER_DB_FILE, 'r') as f: return json.load(f)
         except: return default_users()
-    return default_users()
+    else:
+        # Création initiale si n'existe pas
+        db = default_users()
+        with open(USER_DB_FILE, 'w') as f: json.dump(db, f)
+        return db
 
 def default_users():
     return {
@@ -55,21 +40,27 @@ def default_users():
         "demo": {"password": "demo", "role": "user", "email": "client@gmail.com", "plan": "GRATUIT"}
     }
 
-def save_user_to_db(username, data):
-    st.session_state.users_db[username] = data
-    with open(USER_DB_FILE, 'w') as f:
-        json.dump(st.session_state.users_db, f)
+def save_user(username, data):
+    # 1. On lit la version la plus récente
+    current_db = get_db()
+    # 2. On ajoute l'utilisateur
+    current_db[username] = data
+    # 3. On sauvegarde
+    with open(USER_DB_FILE, 'w') as f: json.dump(current_db, f)
+    # 4. On met à jour la session en cours
+    st.session_state.users_db = current_db
 
-def update_user_plan(username, new_plan):
-    if username in st.session_state.users_db:
-        st.session_state.users_db[username]['plan'] = new_plan
-        with open(USER_DB_FILE, 'w') as f:
-            json.dump(st.session_state.users_db, f)
+def update_plan(username, new_plan):
+    current_db = get_db()
+    if username in current_db:
+        current_db[username]['plan'] = new_plan
+        with open(USER_DB_FILE, 'w') as f: json.dump(current_db, f)
+        st.session_state.users_db = current_db
         return True
     return False
 
 # --- 4. INITIALISATION ---
-if 'users_db' not in st.session_state: st.session_state.users_db = load_users()
+if 'users_db' not in st.session_state: st.session_state.users_db = get_db()
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
 if 'user' not in st.session_state: st.session_state.user = None
@@ -78,7 +69,7 @@ if 'current_project' not in st.session_state: st.session_state.current_project =
 if 'company_info' not in st.session_state: 
     st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
-# Abonnement par défaut (temporaire avant login)
+# Abonnements & Crédits
 if 'subscription_plan' not in st.session_state: st.session_state.subscription_plan = "GRATUIT"
 if 'credits_used' not in st.session_state: st.session_state.credits_used = 0
 if 'credits_limit' not in st.session_state: st.session_state.credits_limit = PLANS["GRATUIT"]["limit"]
@@ -96,7 +87,7 @@ if 'user_criteria' not in st.session_state:
 if 'user_skills' not in st.session_state: st.session_state.user_skills = st.session_state.user_criteria['skills']
 if 'projects' not in st.session_state: st.session_state.projects = []
 
-# --- 5. CSS GLOBAL ---
+# --- 5. CSS GLOBAL (DESIGN V10.5) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -200,18 +191,24 @@ def auth_form(mode):
             btn_text = "SE CONNECTER" if mode == "Se connecter" else "S'INSCRIRE"
             
             if st.form_submit_button(btn_text):
+                current_db = get_db() # Charge la DB à jour
                 if mode == "Créer un compte":
-                    save_user_to_db(username, {"password": password, "role": "user", "plan": "GRATUIT", "email": username})
-                    st.success("Compte créé !"); time.sleep(1); st.session_state.auth_view = 'login'; st.rerun()
+                    if username in current_db:
+                        st.error("Cet identifiant existe déjà.")
+                    else:
+                        save_user(username, {"password": password, "role": "user", "plan": "GRATUIT", "email": username})
+                        st.success("Compte créé ! Connectez-vous.")
+                        time.sleep(1)
+                        st.session_state.auth_view = 'login'
+                        st.rerun()
                 else:
-                    if username in st.session_state.users_db and st.session_state.users_db[username]["password"] == password:
+                    if username in current_db and current_db[username]["password"] == password:
                         st.session_state.authenticated = True
-                        st.session_state.user = username
-                        # Charge le plan
-                        user_data = st.session_state.users_db[username]
-                        st.session_state.subscription_plan = user_data.get("plan", "GRATUIT")
-                        st.session_state.credits_limit = PLANS[st.session_state.subscription_plan]["limit"]
-                        st.session_state.user_role = user_data.get("role", "user")
+                        st.session_state.user_name = username
+                        st.session_state.user_role = current_db[username].get("role", "user")
+                        user_plan = current_db[username].get("plan", "GRATUIT")
+                        st.session_state.subscription_plan = user_plan
+                        st.session_state.credits_limit = PLANS[user_plan]["limit"]
                         st.rerun()
                     else: st.error("Identifiants incorrects.")
         if st.button("← Retour"): st.session_state.auth_view = 'landing'; st.rerun()
@@ -279,10 +276,10 @@ with st.sidebar:
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
     
     # BOUTON ADMIN (Visible uniquement pour l'admin)
-    if st.session_state.user_role == 'admin':
+    if st.session_state.get('user_role') == 'admin':
         st.markdown("---")
-        if st.button("🔴 ADMINISTRATION", type="primary"): st.session_state.page = 'admin'; st.rerun()
-        
+        if st.button("🔴 ADMIN PANEL"): st.session_state.page = 'admin'; st.rerun()
+
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
     st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>SERVEUR : <span style='color:#00C853; font-weight:bold;'>{API_STATUS}</span></div>", unsafe_allow_html=True)
@@ -297,6 +294,7 @@ if st.session_state.page == 'dashboard':
     with c1: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">CA PRÉVISIONNEL</div><div class="kpi-value">{total:,.0f} €</div></div>""", unsafe_allow_html=True)
     with c2: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">TAUX DE SUCCÈS</div><div class="kpi-value">32%</div></div>""", unsafe_allow_html=True)
     with c3: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">DOSSIERS ACTIFS</div><div class="kpi-value">{len(st.session_state.projects)}</div></div>""", unsafe_allow_html=True)
+    
     st.write(""); st.write(""); st.caption("APPELS D'OFFRE / DOSSIERS")
     
     if not st.session_state.projects: st.info("Aucun dossier en cours.")
@@ -332,8 +330,8 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
-                    res = analyze(img, f"Projet: {p['name']}. Contexte: {criteria_text}. Extrais Matching, RSE, Délai, Pénalités.")
+                    criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
+                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
@@ -363,42 +361,40 @@ elif st.session_state.page == 'studio':
     with c2:
         if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PAGE ADMIN (NOUVELLE PAGE AJOUTÉE)
+# PAGE ADMIN (CACHE)
 elif st.session_state.page == 'admin':
     st.title("Console Administration")
     st.info("Gestion des utilisateurs et des abonnements.")
     
-    # Tableau des utilisateurs
+    # Reload DB
+    current_db = get_db()
     users_data = []
-    for username, data in st.session_state.users_db.items():
+    for username, data in current_db.items():
         users_data.append({
             "Utilisateur": username,
             "Email": data.get("email", ""),
-            "Plan Actuel": data.get("plan", "GRATUIT"),
+            "Plan": data.get("plan", "GRATUIT"),
             "Rôle": data.get("role", "user")
         })
     st.table(pd.DataFrame(users_data))
     
     st.write("---")
-    st.subheader("Modifier un abonnement")
-    
     c_user, c_plan, c_btn = st.columns(3)
-    with c_user:
-        target_user = st.selectbox("Sélectionner l'utilisateur", list(st.session_state.users_db.keys()))
-    with c_plan:
-        target_plan = st.selectbox("Nouveau Plan", ["GRATUIT", "PRO", "ULTRA"])
+    with c_user: target_user = st.selectbox("Utilisateur", list(current_db.keys()))
+    with c_plan: target_plan = st.selectbox("Plan", ["GRATUIT", "PRO", "ULTRA"])
     with c_btn:
-        st.write("") # Spacer
-        if st.button("Valider le changement"):
-            update_user_plan(target_user, target_plan)
-            st.success(f"L'utilisateur {target_user} est passé en {target_plan} !")
-            time.sleep(1); st.rerun()
+        st.write("")
+        if st.button("Mettre à jour"):
+            update_plan(target_user, target_plan)
+            st.success("Plan mis à jour !"); time.sleep(1); st.rerun()
 
 # PARAMETRES
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
     t1, t2, t3, t4 = st.tabs(["Critères", "Mon Compte & Abo", "Mentions", "CERFA"])
+    
     with t1:
+        st.subheader("Mes Compétences")
         c_add, c_btn = st.columns([3, 1])
         new_skill = c_add.text_input("Nouvelle compétence", label_visibility="collapsed")
         if c_btn.button("AJOUTER"):
@@ -416,10 +412,9 @@ elif st.session_state.page == 'settings':
         with c_plan:
             plan = st.session_state.subscription_plan
             st.info(f"PLAN ACTUEL : {PLANS[plan]['label']} ({PLANS[plan]['price']})")
-            
             c_p, c_u = st.columns(2)
-            if PLANS["PRO"]["link"]: c_p.link_button("PASSER PRO (15€)", PLANS["PRO"]["link"])
-            if PLANS["ULTRA"]["link"]: c_u.link_button("PASSER ULTRA (55€)", PLANS["ULTRA"]["link"])
+            if PLANS["PRO"]["link"]: c_p.link_button("PASSER PRO", PLANS["PRO"]["link"])
+            if PLANS["ULTRA"]["link"]: c_u.link_button("PASSER ULTRA", PLANS["ULTRA"]["link"])
 
         with c_usage:
             limit = PLANS[plan]['limit']
