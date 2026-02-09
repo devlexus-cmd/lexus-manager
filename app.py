@@ -9,21 +9,17 @@ import json
 import os
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION (SEO OPTIMISÉ) ---
-# J'ai changé le titre ici : c'est ce qui apparait dans l'onglet Google et les résultats de recherche
+# --- 1. CONFIGURATION ---
 st.set_page_config(
     layout="wide", 
-    page_title="LEXUS AI | Logiciel d'Analyse d'Appels d'Offres & Autres",
+    page_title="LEXUS Enterprise | Logiciel de Marchés Publics",
     page_icon="💎",
     initial_sidebar_state="collapsed",
     menu_items={
         'Get Help': 'mailto:contact@lexus-ai.com',
-        'About': "Lexus Enterprise est le premier logiciel SaaS d'analyse d'appels d'offres par Intelligence Artificielle pour les PME,TPE et indépendants."
+        'About': "Lexus Enterprise est le premier logiciel SaaS d'analyse d'appels d'offres par Intelligence Artificielle."
     }
 )
-
-# --- VALIDATION GOOGLE SEARCH CONSOLE ---
-st.markdown('<meta name="google-site-verification" content="TjQiamZ2XiHgRf9nHlnIN_ZcYSRKnHQrkkXWAK7YqsA" />', unsafe_allow_html=True)
 
 # --- 2. CONFIGURATION ABONNEMENTS ---
 PLANS = {
@@ -92,7 +88,7 @@ if 'user_criteria' not in st.session_state:
 if 'user_skills' not in st.session_state: st.session_state.user_skills = st.session_state.user_criteria['skills']
 if 'projects' not in st.session_state: st.session_state.projects = []
 
-# --- 5. CSS GLOBAL ---
+# --- 5. CSS GLOBAL (DESIGN BLANC V10.5) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -158,9 +154,8 @@ def login_screen():
 
     st.write(""); st.write(""); st.write(""); st.write("")
     
-    # TITRES AVEC MOTS-CLÉS SEO
-    st.markdown("<div class='hero-title'>Le Logiciel d'Intelligence Artificielle pour<br><span style='color:#0055FF'>vos Appels d'Offres BTP.</span></div>", unsafe_allow_html=True)
-    st.markdown("<div class='hero-subtitle'>Lexus Enterprise automatise l'analyse de vos dossiers, génère vos DC1/DC2 et pilote votre activité commerciale.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='hero-title'>L'Intelligence Artificielle pour<br><span style='color:#0055FF'>vos marchés publics.</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='hero-subtitle'>Centralisez vos appels d'offres. Analysez vos documents en un clic.<br>Générez vos dossiers administratifs sans erreur.</div>", unsafe_allow_html=True)
     
     c_cta1, c_cta2, c_cta3 = st.columns([1, 1, 1])
     with c_cta2:
