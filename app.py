@@ -25,8 +25,8 @@ st.set_page_config(
 # --- 2. CONFIGURATION ABONNEMENTS ---
 PLANS = {
     "GRATUIT": {"limit": 3, "price": "0€", "label": "DÉCOUVERTE", "link": None},
-    "PRO": {"limit": 30, "price": "15€", "label": "PROFESSIONNEL", "link": "https://buy.stripe.com/votre_lien_pro"},
-    "ULTRA": {"limit": 999999, "price": "55€", "label": "ILLIMITÉ", "link": "https://buy.stripe.com/votre_lien_ultra"}
+    "PRO": {"limit": 30, "price": "15€", "label": "PROFESSIONNEL", "link": "https://buy.stripe.com/3cIdR22u00uL2tB5BH08g00"},
+    "ULTRA": {"limit": 999999, "price": "55€", "label": "ILLIMITÉ", "link": "https://buy.stripe.com/3cI5kw8So1yPc4b6FL08g01"}
 }
 
 # --- 3. SYSTÈME DE SAUVEGARDE (DATABASE JSON) ---
