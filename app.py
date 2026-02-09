@@ -5,51 +5,70 @@ import pandas as pd
 import time
 import io
 import datetime 
+import json
+import os
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION & SEO (AJOUTÉ) ---
+# --- 1. CONFIGURATION ---
 st.set_page_config(
     layout="wide", 
-    page_title="LEXUS Enterprise | Logiciel de Marchés Publics", # Titre pour Google
+    page_title="LEXUS Enterprise | Logiciel de Marchés Publics",
     page_icon="💎",
-    initial_sidebar_state="collapsed",
-    menu_items={
-        'Get Help': 'mailto:support@lexus-ai.com',
-        'About': "Logiciel de pilotage commercial et d'analyse IA pour le BTP et la Finance."
-    }
+    initial_sidebar_state="collapsed"
 )
 
-# --- 2. GESTION DE L'ÉTAT & BASE DE DONNÉES ---
-if 'authenticated' not in st.session_state: st.session_state.authenticated = False
-if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
-if 'user_name' not in st.session_state: st.session_state.user_name = "Client"
-if 'user_role' not in st.session_state: st.session_state.user_role = "user" # user ou admin
-if 'page' not in st.session_state: st.session_state.page = 'dashboard'
-if 'current_project' not in st.session_state: st.session_state.current_project = None
-if 'company_info' not in st.session_state: st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
+# --- 2. SYSTÈME DE PERSISTANCE (SAUVEGARDE DES COMPTES) ---
+USER_DB_FILE = "users.json"
 
-# BASE UTILISATEURS (AJOUT POUR ADMIN)
-# Dans un vrai cas, ceci serait dans Firebase
-if 'users_db' not in st.session_state:
-    st.session_state.users_db = {
+def load_users():
+    if os.path.exists(USER_DB_FILE):
+        try:
+            with open(USER_DB_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return default_users()
+    return default_users()
+
+def default_users():
+    return {
         "admin": {"password": "lexus123", "role": "admin", "email": "admin@lexus.com", "plan": "ULTRA"},
-        "client": {"password": "123", "role": "user", "email": "client@gmail.com", "plan": "PRO"}
+        "demo": {"password": "demo", "role": "user", "email": "client@gmail.com", "plan": "GRATUIT"}
     }
 
-# Données persistantes projets
-if 'projects' not in st.session_state:
-    st.session_state.projects = []
+def save_user_to_db(username, data):
+    st.session_state.users_db[username] = data
+    with open(USER_DB_FILE, 'w') as f:
+        json.dump(st.session_state.users_db, f)
+
+# --- 3. INITIALISATION DE L'ÉTAT (OBLIGATOIRE POUR EVITER LES ERREURS) ---
+if 'users_db' not in st.session_state: st.session_state.users_db = load_users()
+if 'authenticated' not in st.session_state: st.session_state.authenticated = False
+if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
+if 'user' not in st.session_state: st.session_state.user = None
+if 'user_role' not in st.session_state: st.session_state.user_role = "user"
+if 'page' not in st.session_state: st.session_state.page = 'dashboard'
+if 'current_project' not in st.session_state: st.session_state.current_project = None
+if 'company_info' not in st.session_state: 
+    st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
+
+# Initialisation sûre des critères et compétences
 if 'user_criteria' not in st.session_state:
     st.session_state.user_criteria = {
-        "skills": ["BTP", "Gestion"],
+        "skills": ["BTP", "Gestion", "Finance"],
         "min_daily_rate": 450,
         "max_distance": 50,
         "certifications": [],
         "min_turnover_required": 0,
         "max_penalties": 5
     }
+if 'user_skills' not in st.session_state:
+    st.session_state.user_skills = st.session_state.user_criteria['skills']
 
-# --- 3. CSS GLOBAL (DESIGN V10.5 PRÉSERVÉ) ---
+# Données persistantes projets
+if 'projects' not in st.session_state:
+    st.session_state.projects = []
+
+# --- 4. CSS GLOBAL (DESIGN V10.5 PRÉSERVÉ) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -124,11 +143,25 @@ st.markdown("""
     
     /* TAGS */
     .skill-tag { display: inline-block; padding: 5px 10px; margin: 2px; background: #F0F5FF; color: #0055FF; border-radius: 15px; font-size: 12px; font-weight: bold; border: 1px solid #0055FF20; }
+
+    /* CARTE ABONNEMENT */
+    .sub-card {
+        background-color: #1a1a1a; color: white; padding: 25px; border-radius: 15px; 
+        border: 1px solid #333; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-bottom: 20px;
+    }
+    .sub-name { color: #0055FF; font-size: 14px; font-weight: 800; letter-spacing: 2px; margin-bottom: 10px; }
+    .sub-price { font-size: 32px; font-weight: 700; margin-bottom: 5px; color: white; }
+    .sub-period { font-size: 14px; color: #888; font-weight: 400; }
+    .sub-badge {
+        background-color: #00C853; color: white; padding: 4px 10px; 
+        border-radius: 20px; font-size: 10px; font-weight: bold;
+        position: absolute; top: 20px; right: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION (V10.5) ===
+# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION ===
 # =========================================================
 
 def login_screen():
@@ -153,38 +186,13 @@ def login_screen():
 
     st.write(""); st.write(""); st.write("")
     
-    # FEATURES GRID
     c_f1, c_f2, c_f3 = st.columns(3)
     with c_f1:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            </div>
-            <div class="feature-title">Analyse Sémantique</div>
-            <div class="feature-desc">Notre IA lit et comprend vos cahiers des charges. Elle extrait instantanément les critères et délais.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div><div class="feature-title">Analyse Sémantique</div><div class="feature-desc">Notre IA lit et comprend vos cahiers des charges. Elle extrait instantanément les critères et délais.</div></div>""", unsafe_allow_html=True)
     with c_f2:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            </div>
-            <div class="feature-title">Gestion Administrative</div>
-            <div class="feature-desc">Fini la saisie manuelle. Lexus pré-remplit vos DC1, DC2 et documents de conformité.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div><div class="feature-title">Gestion Administrative</div><div class="feature-desc">Fini la saisie manuelle. Lexus pré-remplit vos DC1, DC2 et documents de conformité.</div></div>""", unsafe_allow_html=True)
     with c_f3:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
-            </div>
-            <div class="feature-title">Pilotage Financier</div>
-            <div class="feature-desc">Un tableau de bord clair pour suivre vos taux de succès et votre CA prévisionnel.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg></div><div class="feature-title">Pilotage Financier</div><div class="feature-desc">Un tableau de bord clair pour suivre vos taux de succès et votre CA prévisionnel.</div></div>""", unsafe_allow_html=True)
         
     st.write("")
     st.markdown("<hr style='border:0; border-top:1px solid #eee; margin: 50px 0;'>", unsafe_allow_html=True)
@@ -204,14 +212,21 @@ def auth_form(mode):
             btn_text = "SE CONNECTER" if mode == "Se connecter" else "S'INSCRIRE"
             
             if st.form_submit_button(btn_text):
-                # LOGIN ADMIN ou USER
-                if username in st.session_state.users_db and st.session_state.users_db[username]["password"] == password:
-                    st.session_state.authenticated = True
-                    st.session_state.user_name = username
-                    st.session_state.user_role = st.session_state.users_db[username]["role"]
+                # LOGIQUE AUTH + SAUVEGARDE NOUVEL UTILISATEUR
+                if mode == "Créer un compte":
+                    save_user_to_db(username, {"password": password, "role": "user", "plan": "GRATUIT", "email": username})
+                    st.success("Compte créé ! Connectez-vous.")
+                    time.sleep(1)
+                    st.session_state.auth_view = 'login'
                     st.rerun()
                 else:
-                    st.error("Identifiants incorrects.")
+                    if username in st.session_state.users_db and st.session_state.users_db[username]["password"] == password:
+                        st.session_state.authenticated = True
+                        st.session_state.user_name = username
+                        st.session_state.user_role = st.session_state.users_db[username].get("role", "user")
+                        st.rerun()
+                    else:
+                        st.error("Identifiants incorrects.")
         
         if st.button("← Retour"): st.session_state.auth_view = 'landing'; st.rerun()
 
@@ -286,16 +301,13 @@ with st.sidebar:
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
     
     # BOUTON ADMIN (VISIBLE SEULEMENT POUR L'ADMIN)
-    if st.session_state.user_role == 'admin':
+    if st.session_state.get('user_role') == 'admin':
         st.markdown("---")
         if st.button("🔴 ADMIN PANEL"): st.session_state.page = 'admin'; st.rerun()
         
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
-    
-    # STATUS SERVEUR (SANS EMOJI)
-    status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
-    st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>Serveur : {API_STATUS}</div>", unsafe_allow_html=True)
 
 # --- PAGES ---
 
@@ -376,32 +388,16 @@ elif st.session_state.page == 'studio':
     with c2:
         if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PAGE ADMIN (NOUVEAU)
+# PAGE ADMIN (CACHE)
 elif st.session_state.page == 'admin':
     st.title("Console Administration")
-    st.write("---")
-    st.subheader("Base de données Utilisateurs")
+    st.warning("Espace réservé.")
+    st.write(st.session_state.users_db)
     
-    # Affichage de la table des utilisateurs
-    users_df = pd.DataFrame.from_dict(st.session_state.users_db, orient='index')
-    st.table(users_df)
-    
-    st.write("---")
-    st.subheader("Modification Droits")
-    c1, c2 = st.columns(2)
-    with c1:
-        u_edit = st.selectbox("Utilisateur", list(st.session_state.users_db.keys()))
-    with c2:
-        new_plan = st.selectbox("Nouveau Plan", ["GRATUIT", "PRO", "ULTRA"])
-        if st.button("Mettre à jour"):
-            st.session_state.users_db[u_edit]['plan'] = new_plan
-            st.success(f"{u_edit} passé en {new_plan}")
-            time.sleep(1); st.rerun()
-
 # PARAMETRES
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
-    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Mon Compte", "Mentions Légales", "Données CERFA"])
+    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Mon Compte & Abo", "Mentions Légales", "Données CERFA"])
     
     with t1:
         st.subheader("Critères d'analyse IA")
@@ -435,18 +431,25 @@ elif st.session_state.page == 'settings':
             st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max acceptées (%)", 0, 100, 5)
             st.session_state.user_criteria['max_distance'] = st.slider("Rayon d'action max (km)", 0, 1000, 100)
 
+    # 2. MON COMPTE & ABO (3 OFFRES STRIPE)
     with t2:
-        st.subheader("Gestion du compte")
-        # Affichage du plan de l'utilisateur connecté
-        current_plan = st.session_state.users_db.get(st.session_state.user, {}).get("plan", "GRATUIT")
-        st.info(f"Abonnement Actuel : {current_plan}")
+        st.subheader("Mon Abonnement")
+        # Récupération sécurisée du plan
+        user_data = st.session_state.users_db.get(st.session_state.user_name, {})
+        current_plan = user_data.get("plan", "GRATUIT")
+
+        st.info(f"Votre Plan Actuel : **{current_plan}**")
         
-        st.write("---")
-        st.caption("Pour changer d'abonnement, contactez le support ou utilisez les liens ci-dessous.")
-        
-        c_pro, c_ultra = st.columns(2)
-        c_pro.link_button("Passer PRO (15€)", "https://buy.stripe.com/votre_lien_pro")
-        c_ultra.link_button("Passer ULTRA (55€)", "https://buy.stripe.com/votre_lien_ultra")
+        c_plan, c_usage = st.columns([1, 1])
+        with c_plan:
+             st.markdown("#### Changer d'offre")
+             st.link_button("Passer PRO (15€)", "https://buy.stripe.com/votre_lien_pro")
+             st.link_button("Passer ULTRA (55€)", "https://buy.stripe.com/votre_lien_ultra")
+
+        with c_usage:
+            st.write("**Consommation**")
+            st.progress(0.1)
+            st.caption("Vous avez utilisé 10% de vos crédits.")
 
     with t3:
         st.subheader("Mentions Légales")
