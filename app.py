@@ -22,6 +22,9 @@ st.set_page_config(
     }
 )
 
+# --- VALIDATION GOOGLE SEARCH CONSOLE ---
+st.markdown('<meta name="google-site-verification" content="TjQiamZ2XiHgRf9nHlnIN_ZcYSRKnHQrkkXWAK7YqsA" />', unsafe_allow_html=True)
+
 # --- 2. CONFIGURATION ABONNEMENTS ---
 PLANS = {
     "GRATUIT": {"limit": 3, "price": "0€", "label": "DÉCOUVERTE", "link": None},
@@ -143,7 +146,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === PARTIE 1 : LANDING PAGE (SEO FRIENDLY) ===
+# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION ===
 # =========================================================
 
 def login_screen():
@@ -322,7 +325,8 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    res = analyze(img, f"Projet : {p['name']}. Extrais Matching, RSE, Délai, Pénalités.")
+                    criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
+                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
@@ -376,6 +380,11 @@ elif st.session_state.page == 'settings':
             if new_skill: st.session_state.user_skills.append(new_skill); st.rerun()
         for s in st.session_state.user_skills: st.markdown(f"<span class='skill-tag'>{s}</span>", unsafe_allow_html=True)
         if st.button("Effacer tout"): st.session_state.user_skills = []; st.rerun()
+        st.divider()
+        st.subheader("Finances")
+        st.session_state.user_criteria['min_daily_rate'] = st.number_input("Taux Journalier", value=450)
+        st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max (%)", 0, 20, 5)
+
     with t2:
         st.subheader("Mon Abonnement")
         c_plan, c_usage = st.columns([1, 1])
