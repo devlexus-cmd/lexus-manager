@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CONFIGURATION ABONNEMENTS (TES LIENS ICI) ---
+# --- 2. CONFIGURATION ABONNEMENTS ---
 PLANS = {
     "GRATUIT": {
         "limit": 3,
@@ -60,6 +60,14 @@ def save_user_to_db(username, data):
     with open(USER_DB_FILE, 'w') as f:
         json.dump(st.session_state.users_db, f)
 
+def update_user_plan(username, new_plan):
+    if username in st.session_state.users_db:
+        st.session_state.users_db[username]['plan'] = new_plan
+        with open(USER_DB_FILE, 'w') as f:
+            json.dump(st.session_state.users_db, f)
+        return True
+    return False
+
 # --- 4. INITIALISATION ---
 if 'users_db' not in st.session_state: st.session_state.users_db = load_users()
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
@@ -70,7 +78,7 @@ if 'current_project' not in st.session_state: st.session_state.current_project =
 if 'company_info' not in st.session_state: 
     st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
-# Abonnement par défaut
+# Abonnement par défaut (temporaire avant login)
 if 'subscription_plan' not in st.session_state: st.session_state.subscription_plan = "GRATUIT"
 if 'credits_used' not in st.session_state: st.session_state.credits_used = 0
 if 'credits_limit' not in st.session_state: st.session_state.credits_limit = PLANS["GRATUIT"]["limit"]
@@ -88,7 +96,7 @@ if 'user_criteria' not in st.session_state:
 if 'user_skills' not in st.session_state: st.session_state.user_skills = st.session_state.user_criteria['skills']
 if 'projects' not in st.session_state: st.session_state.projects = []
 
-# --- 5. CSS GLOBAL (DESIGN V10.5) ---
+# --- 5. CSS GLOBAL ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -140,6 +148,13 @@ st.markdown("""
     /* INPUTS & TAGS */
     .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
     .skill-tag { display: inline-block; padding: 5px 10px; margin: 2px; background: #F0F5FF; color: #0055FF; border-radius: 15px; font-size: 12px; font-weight: bold; border: 1px solid #0055FF20; }
+    
+    /* CARTE ABONNEMENT */
+    .sub-card { background-color: #1a1a1a; color: white; padding: 25px; border-radius: 15px; border: 1px solid #333; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-bottom: 20px; }
+    .sub-name { color: #0055FF; font-size: 14px; font-weight: 800; letter-spacing: 2px; margin-bottom: 10px; }
+    .sub-price { font-size: 32px; font-weight: 700; margin-bottom: 5px; color: white; }
+    .sub-period { font-size: 14px; color: #888; font-weight: 400; }
+    .sub-badge { background-color: #00C853; color: white; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; position: absolute; top: 20px; right: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -183,6 +198,7 @@ def auth_form(mode):
             password = st.text_input("Mot de passe", type="password")
             if mode == "Créer un compte": st.text_input("Nom de l'entreprise")
             btn_text = "SE CONNECTER" if mode == "Se connecter" else "S'INSCRIRE"
+            
             if st.form_submit_button(btn_text):
                 if mode == "Créer un compte":
                     save_user_to_db(username, {"password": password, "role": "user", "plan": "GRATUIT", "email": username})
@@ -190,11 +206,12 @@ def auth_form(mode):
                 else:
                     if username in st.session_state.users_db and st.session_state.users_db[username]["password"] == password:
                         st.session_state.authenticated = True
-                        st.session_state.user_name = username
+                        st.session_state.user = username
                         # Charge le plan
-                        user_plan = st.session_state.users_db[username].get("plan", "GRATUIT")
-                        st.session_state.subscription_plan = user_plan
-                        st.session_state.credits_limit = PLANS[user_plan]["limit"]
+                        user_data = st.session_state.users_db[username]
+                        st.session_state.subscription_plan = user_data.get("plan", "GRATUIT")
+                        st.session_state.credits_limit = PLANS[st.session_state.subscription_plan]["limit"]
+                        st.session_state.user_role = user_data.get("role", "user")
                         st.rerun()
                     else: st.error("Identifiants incorrects.")
         if st.button("← Retour"): st.session_state.auth_view = 'landing'; st.rerun()
@@ -260,6 +277,12 @@ with st.sidebar:
     if st.button("Tableau de bord"): st.session_state.page = 'dashboard'; st.rerun()
     if st.button("Lexus AI Studio"): st.session_state.page = 'studio'; st.rerun()
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
+    
+    # BOUTON ADMIN (Visible uniquement pour l'admin)
+    if st.session_state.user_role == 'admin':
+        st.markdown("---")
+        if st.button("🔴 ADMINISTRATION", type="primary"): st.session_state.page = 'admin'; st.rerun()
+        
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
     st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>SERVEUR : <span style='color:#00C853; font-weight:bold;'>{API_STATUS}</span></div>", unsafe_allow_html=True)
@@ -340,13 +363,42 @@ elif st.session_state.page == 'studio':
     with c2:
         if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PARAMETRES (ABONNEMENT)
+# PAGE ADMIN (NOUVELLE PAGE AJOUTÉE)
+elif st.session_state.page == 'admin':
+    st.title("Console Administration")
+    st.info("Gestion des utilisateurs et des abonnements.")
+    
+    # Tableau des utilisateurs
+    users_data = []
+    for username, data in st.session_state.users_db.items():
+        users_data.append({
+            "Utilisateur": username,
+            "Email": data.get("email", ""),
+            "Plan Actuel": data.get("plan", "GRATUIT"),
+            "Rôle": data.get("role", "user")
+        })
+    st.table(pd.DataFrame(users_data))
+    
+    st.write("---")
+    st.subheader("Modifier un abonnement")
+    
+    c_user, c_plan, c_btn = st.columns(3)
+    with c_user:
+        target_user = st.selectbox("Sélectionner l'utilisateur", list(st.session_state.users_db.keys()))
+    with c_plan:
+        target_plan = st.selectbox("Nouveau Plan", ["GRATUIT", "PRO", "ULTRA"])
+    with c_btn:
+        st.write("") # Spacer
+        if st.button("Valider le changement"):
+            update_user_plan(target_user, target_plan)
+            st.success(f"L'utilisateur {target_user} est passé en {target_plan} !")
+            time.sleep(1); st.rerun()
+
+# PARAMETRES
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
     t1, t2, t3, t4 = st.tabs(["Critères", "Mon Compte & Abo", "Mentions", "CERFA"])
-    
     with t1:
-        st.subheader("Mes Compétences")
         c_add, c_btn = st.columns([3, 1])
         new_skill = c_add.text_input("Nouvelle compétence", label_visibility="collapsed")
         if c_btn.button("AJOUTER"):
