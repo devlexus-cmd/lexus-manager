@@ -7,45 +7,36 @@ import io
 import datetime 
 from fpdf import FPDF
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="collapsed")
-
-# --- 2. CONFIGURATION ABONNEMENTS (STRIPE) ---
-# C'est ici que la logique financière est stockée
-PLANS = {
-    "GRATUIT": {
-        "limit": 3, 
-        "price": "0€", 
-        "label": "Découverte",
-        "link": None
-    },
-    "PRO": {
-        "limit": 30, 
-        "price": "15€", 
-        "label": "Professionnel",
-        "link": "https://buy.stripe.com/3cIdR22u00uL2tB5BH08g00" # REMPLACER PAR VOTRE LIEN STRIPE
-    },
-    "ULTRA": {
-        "limit": 999999, 
-        "price": "55€", 
-        "label": "Illimité",
-        "link": "https://buy.stripe.com/3cI5kw8So1yPc4b6FL08g01" # REMPLACER PAR VOTRE LIEN STRIPE
+# --- 1. CONFIGURATION & SEO (AJOUTÉ) ---
+st.set_page_config(
+    layout="wide", 
+    page_title="LEXUS Enterprise | Logiciel de Marchés Publics", # Titre pour Google
+    page_icon="💎",
+    initial_sidebar_state="collapsed",
+    menu_items={
+        'Get Help': 'mailto:support@lexus-ai.com',
+        'About': "Logiciel de pilotage commercial et d'analyse IA pour le BTP et la Finance."
     }
-}
+)
 
-# --- 3. GESTION DE L'ÉTAT ---
+# --- 2. GESTION DE L'ÉTAT & BASE DE DONNÉES ---
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
 if 'user_name' not in st.session_state: st.session_state.user_name = "Client"
+if 'user_role' not in st.session_state: st.session_state.user_role = "user" # user ou admin
 if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'company_info' not in st.session_state: st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
-# Variables d'abonnement
-if 'subscription_plan' not in st.session_state: st.session_state.subscription_plan = "GRATUIT"
-if 'credits_used' not in st.session_state: st.session_state.credits_used = 1
+# BASE UTILISATEURS (AJOUT POUR ADMIN)
+# Dans un vrai cas, ceci serait dans Firebase
+if 'users_db' not in st.session_state:
+    st.session_state.users_db = {
+        "admin": {"password": "lexus123", "role": "admin", "email": "admin@lexus.com", "plan": "ULTRA"},
+        "client": {"password": "123", "role": "user", "email": "client@gmail.com", "plan": "PRO"}
+    }
 
-# Données persistantes
+# Données persistantes projets
 if 'projects' not in st.session_state:
     st.session_state.projects = []
 if 'user_criteria' not in st.session_state:
@@ -57,10 +48,8 @@ if 'user_criteria' not in st.session_state:
         "min_turnover_required": 0,
         "max_penalties": 5
     }
-if 'user_skills' not in st.session_state: 
-    st.session_state.user_skills = st.session_state.user_criteria['skills']
 
-# --- 4. CSS GLOBAL (LANDING V10.5 RESTAURÉE) ---
+# --- 3. CSS GLOBAL (DESIGN V10.5 PRÉSERVÉ) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -77,7 +66,7 @@ st.markdown("""
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    /* LANDING PAGE STYLES (RESTAURÉS) */
+    /* LANDING PAGE STYLES */
     .hero-title { 
         font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
     }
@@ -85,7 +74,7 @@ st.markdown("""
         font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
     }
     
-    /* FEATURES GRID (Clean sans emoji) */
+    /* FEATURES GRID */
     .feature-card {
         padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
         height: 100%; display: flex; flex-direction: column; align-items: center;
@@ -129,20 +118,6 @@ st.markdown("""
     .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 8px; font-weight: 600; }
     .kpi-value { font-size: 28px; font-weight: 700; color: #0055FF; }
     .kpi-sub { font-size: 11px; color: #888; margin-top: 5px; }
-    
-    /* CARTE ABONNEMENT */
-    .sub-card {
-        background-color: #1a1a1a; color: white; padding: 25px; border-radius: 15px; 
-        border: 1px solid #333; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-bottom: 20px;
-    }
-    .sub-name { color: #0055FF; font-size: 14px; font-weight: 800; letter-spacing: 2px; margin-bottom: 10px; }
-    .sub-price { font-size: 32px; font-weight: 700; margin-bottom: 5px; color: white; }
-    .sub-period { font-size: 14px; color: #888; font-weight: 400; }
-    .sub-badge {
-        background-color: #00C853; color: white; padding: 4px 10px; 
-        border-radius: 20px; font-size: 10px; font-weight: bold;
-        position: absolute; top: 20px; right: 20px;
-    }
     
     /* INPUTS */
     .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
@@ -222,13 +197,22 @@ def auth_form(mode):
         st.markdown("<div style='text-align:center; margin-bottom:20px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
         st.markdown(f"<h3 style='text-align:center; margin-bottom:30px;'>{mode}</h3>", unsafe_allow_html=True)
         with st.form("auth"):
-            st.text_input("Email professionnel")
-            st.text_input("Mot de passe", type="password")
+            username = st.text_input("Identifiant / Email")
+            password = st.text_input("Mot de passe", type="password")
             if mode == "Créer un compte": st.text_input("Nom de l'entreprise")
+            
             btn_text = "SE CONNECTER" if mode == "Se connecter" else "S'INSCRIRE"
-            if st.form_submit_button(btn_text): 
-                st.session_state.authenticated = True
-                st.rerun()
+            
+            if st.form_submit_button(btn_text):
+                # LOGIN ADMIN ou USER
+                if username in st.session_state.users_db and st.session_state.users_db[username]["password"] == password:
+                    st.session_state.authenticated = True
+                    st.session_state.user_name = username
+                    st.session_state.user_role = st.session_state.users_db[username]["role"]
+                    st.rerun()
+                else:
+                    st.error("Identifiants incorrects.")
+        
         if st.button("← Retour"): st.session_state.auth_view = 'landing'; st.rerun()
 
 if not st.session_state.authenticated:
@@ -287,28 +271,31 @@ try:
 except: active_model = None
 
 def analyze(image, prompt):
-    # CONTROLE ABONNEMENT
-    plan = PLANS[st.session_state.subscription_plan]
-    if st.session_state.credits_used >= plan['limit']:
-        return f"⚠️ LIMITE ATTEINTE : Vous avez utilisé vos {plan['limit']} analyses. Passez à l'offre supérieure."
-
     if not active_model: return "⚠️ Clé API invalide."
     try:
         model = genai.GenerativeModel(active_model)
-        res = model.generate_content([prompt, image]).text
-        st.session_state.credits_used += 1 # Débit
-        return res
+        return model.generate_content([prompt, image]).text
     except Exception as e: return f"Erreur : {str(e)}"
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown("""<div style='margin-bottom:40px; padding-left:5px;'><span class='lexus-logo-text'>L</span><span style='color:#aaa; font-weight:200; font-size:26px;'>A</span><span class='lexus-dot'>.</span><div style='font-size:10px; letter-spacing:3px; font-weight:700; margin-top:5px; color:#444;'>LEXUS AI</div></div>""", unsafe_allow_html=True)
+    
     if st.button("Tableau de bord"): st.session_state.page = 'dashboard'; st.rerun()
     if st.button("Lexus AI Studio"): st.session_state.page = 'studio'; st.rerun()
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
+    
+    # BOUTON ADMIN (VISIBLE SEULEMENT POUR L'ADMIN)
+    if st.session_state.user_role == 'admin':
+        st.markdown("---")
+        if st.button("🔴 ADMIN PANEL"): st.session_state.page = 'admin'; st.rerun()
+        
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
-    st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>Serveur : {API_STATUS}</div>", unsafe_allow_html=True)
+    
+    # STATUS SERVEUR (SANS EMOJI)
+    status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
+    st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
 
 # --- PAGES ---
 
@@ -358,9 +345,8 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    # CRITERES UTILISATEUR ENVOYÉS AU PROMPT
                     criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
-                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités.")
+                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
@@ -390,75 +376,77 @@ elif st.session_state.page == 'studio':
     with c2:
         if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PARAMETRES (AVEC GESTION ABONNEMENT)
+# PAGE ADMIN (NOUVEAU)
+elif st.session_state.page == 'admin':
+    st.title("Console Administration")
+    st.write("---")
+    st.subheader("Base de données Utilisateurs")
+    
+    # Affichage de la table des utilisateurs
+    users_df = pd.DataFrame.from_dict(st.session_state.users_db, orient='index')
+    st.table(users_df)
+    
+    st.write("---")
+    st.subheader("Modification Droits")
+    c1, c2 = st.columns(2)
+    with c1:
+        u_edit = st.selectbox("Utilisateur", list(st.session_state.users_db.keys()))
+    with c2:
+        new_plan = st.selectbox("Nouveau Plan", ["GRATUIT", "PRO", "ULTRA"])
+        if st.button("Mettre à jour"):
+            st.session_state.users_db[u_edit]['plan'] = new_plan
+            st.success(f"{u_edit} passé en {new_plan}")
+            time.sleep(1); st.rerun()
+
+# PARAMETRES
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
-    t1, t2, t3, t4 = st.tabs(["Critères & Compétences", "Mon Compte & Abo", "Mentions Légales", "Données CERFA"])
+    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Mon Compte", "Mentions Légales", "Données CERFA"])
     
     with t1:
-        st.subheader("Mes Compétences")
-        c_add, c_btn = st.columns([3, 1])
-        new_skill = c_add.text_input("Nouvelle compétence", label_visibility="collapsed", placeholder="Ex: Maçonnerie...")
-        if c_btn.button("AJOUTER"):
-            if new_skill: st.session_state.user_skills.append(new_skill); st.rerun()
-        
-        tags_html = ""
-        for s in st.session_state.user_skills: tags_html += f"<span class='skill-tag'>{s}</span>"
-        st.markdown(tags_html, unsafe_allow_html=True)
-        if st.button("Effacer tout"): st.session_state.user_skills = []; st.rerun()
+        st.subheader("Critères d'analyse IA")
+        c_left, c_right = st.columns(2)
+        with c_left:
+            st.markdown("##### 1. Capacités Techniques")
+            new_skill = st.text_input("Ajouter une compétence clé", placeholder="Ex: Désamiantage...")
+            if st.button("Ajouter Compétence"):
+                if new_skill: st.session_state.user_criteria['skills'].append(new_skill); st.session_state.user_skills = st.session_state.user_criteria['skills']; st.rerun()
+            
+            tags_html = ""
+            for s in st.session_state.user_criteria['skills']: tags_html += f"<span class='skill-tag'>{s}</span>"
+            st.markdown(tags_html, unsafe_allow_html=True)
+            if st.button("Effacer compétences", key="del_skills"): 
+                st.session_state.user_criteria['skills'] = []
+                st.session_state.user_skills = []
+                st.rerun()
 
-        st.divider()
-        st.subheader("Critères Financiers")
-        st.number_input("Taux Journalier Minimum (€)", value=st.session_state.user_criteria['min_daily_rate'])
-        st.slider("Pénalités max acceptées (%)", 0, 20, 5)
-        st.number_input("Chiffre d'Affaires Minimum requis par le marché", value=0)
+            st.write("")
+            st.markdown("##### 2. Exigences Financières")
+            st.session_state.user_criteria['min_daily_rate'] = st.number_input("Taux Journalier Minimum (€)", value=450)
+            st.session_state.user_criteria['min_turnover_required'] = st.number_input("Chiffre d'Affaires Minimum requis par le marché", value=0)
 
-    # 2. MON COMPTE & ABO (3 OFFRES STRIPE)
+        with c_right:
+            st.markdown("##### 3. Contraintes Administratives")
+            certs = st.text_area("Certifications détenues", placeholder="Qualibat 1552, ISO 9001...")
+            st.session_state.user_criteria['certifications'] = certs.split('\n')
+            
+            st.write("")
+            st.markdown("##### 4. Risques")
+            st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max acceptées (%)", 0, 100, 5)
+            st.session_state.user_criteria['max_distance'] = st.slider("Rayon d'action max (km)", 0, 1000, 100)
+
     with t2:
-        st.subheader("Mon Abonnement")
-        
-        # Affichage des 3 plans
-        c_gratuit, c_pro, c_ultra = st.columns(3)
-        
-        def show_plan(key, plan_data, color):
-            is_active = st.session_state.subscription_plan == key
-            border = f"border: 2px solid {color};" if is_active else "border: 1px solid #333;"
-            bg = "#1a1a1a" if is_active else "#f9f9f9"
-            txt = "white" if is_active else "#333"
-            
-            st.markdown(f"""
-            <div style="background-color: {bg}; color: {txt}; padding: 20px; border-radius: 12px; {border} text-align: center;">
-                <div style="font-weight: bold; font-size: 16px; color: {color};">{plan_data['label']}</div>
-                <div style="font-size: 28px; font-weight: 700; margin: 10px 0;">{plan_data['price']}</div>
-                <div style="font-size: 12px; margin-bottom: 15px;">{plan_data['limit']} requêtes / semaine</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if is_active:
-                st.button("ACTUEL", key=f"btn_{key}", disabled=True)
-            elif plan_data['link']:
-                st.link_button("CHOISIR", plan_data['link'])
-            else:
-                if st.button("CHOISIR", key=f"btn_{key}"):
-                    st.session_state.subscription_plan = key
-                    st.rerun()
-
-        with c_gratuit: show_plan("GRATUIT", PLANS["GRATUIT"], "#666")
-        with c_pro: show_plan("PRO", PLANS["PRO"], "#0055FF")
-        with c_ultra: show_plan("ULTRA", PLANS["ULTRA"], "#00C853")
+        st.subheader("Gestion du compte")
+        # Affichage du plan de l'utilisateur connecté
+        current_plan = st.session_state.users_db.get(st.session_state.user, {}).get("plan", "GRATUIT")
+        st.info(f"Abonnement Actuel : {current_plan}")
         
         st.write("---")
-        st.write("**Ma Consommation IA**")
-        current_plan = PLANS[st.session_state.subscription_plan]
-        limit = current_plan['limit']
+        st.caption("Pour changer d'abonnement, contactez le support ou utilisez les liens ci-dessous.")
         
-        if limit > 9000:
-             st.progress(0)
-             st.caption("Illimité")
-        else:
-            prog = min(st.session_state.credits_used / limit, 1.0)
-            st.progress(prog)
-            st.caption(f"{st.session_state.credits_used} / {limit} requêtes utilisées cette semaine")
+        c_pro, c_ultra = st.columns(2)
+        c_pro.link_button("Passer PRO (15€)", "https://buy.stripe.com/votre_lien_pro")
+        c_ultra.link_button("Passer ULTRA (55€)", "https://buy.stripe.com/votre_lien_ultra")
 
     with t3:
         st.subheader("Mentions Légales")
