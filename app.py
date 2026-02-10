@@ -10,25 +10,16 @@ import os
 from fpdf import FPDF
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(
-    layout="wide", 
-    page_title="LEXUS Enterprise | Logiciel de Marchés Publics",
-    page_icon="💎",
-    initial_sidebar_state="collapsed",
-    menu_items={
-        'Get Help': 'mailto:contact@lexus-ai.com',
-        'About': "Lexus Enterprise est le premier logiciel SaaS d'analyse d'appels d'offres par Intelligence Artificielle."
-    }
-)
+st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar_state="expanded")
 
 # --- 2. CONFIGURATION ABONNEMENTS ---
 PLANS = {
     "GRATUIT": {"limit": 3, "price": "0€", "label": "DÉCOUVERTE", "link": None},
-    "PRO": {"limit": 30, "price": "15€", "label": "PROFESSIONNEL", "link": "https://buy.stripe.com/3cIdR22u00uL2tB5BH08g00"},
-    "ULTRA": {"limit": 999999, "price": "55€", "label": "ILLIMITÉ", "link": "https://buy.stripe.com/3cI5kw8So1yPc4b6FL08g01"}
+    "PRO": {"limit": 30, "price": "15€", "label": "PROFESSIONNEL", "link": "https://buy.stripe.com/votre_lien_pro"},
+    "ULTRA": {"limit": 999999, "price": "55€", "label": "ILLIMITÉ", "link": "https://buy.stripe.com/votre_lien_ultra"}
 }
 
-# --- 3. SYSTÈME DE SAUVEGARDE (DATABASE JSON) ---
+# --- 3. BASE DE DONNÉES LOCALE ---
 USER_DB_FILE = "users.json"
 
 def get_db():
@@ -62,7 +53,7 @@ def update_plan(username, new_plan):
         return True
     return False
 
-# --- 4. INITIALISATION ---
+# --- 4. INIT VARIABLES ---
 if 'users_db' not in st.session_state: st.session_state.users_db = get_db()
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
 if 'auth_view' not in st.session_state: st.session_state.auth_view = 'landing'
@@ -78,7 +69,7 @@ if 'credits_limit' not in st.session_state: st.session_state.credits_limit = PLA
 
 if 'user_criteria' not in st.session_state:
     st.session_state.user_criteria = {
-        "skills": ["BTP", "Gestion", "Finance"],
+        "skills": ["BTP", "Gestion"],
         "min_daily_rate": 450,
         "max_distance": 50,
         "certifications": [],
@@ -86,9 +77,9 @@ if 'user_criteria' not in st.session_state:
         "max_penalties": 5
     }
 if 'user_skills' not in st.session_state: st.session_state.user_skills = st.session_state.user_criteria['skills']
-if 'projects' not in st.session_state: st.session_state.projects = []
+if 'projects' not in st.session_state: st.session_state.projects = [] # Base vide au démarrage
 
-# --- 5. CSS GLOBAL (DESIGN BLANC V10.5) ---
+# --- 5. CSS (CORRECTIFS VISUELS) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
@@ -98,22 +89,44 @@ st.markdown("""
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     
+    /* LOGO */
     .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    .hero-title { font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center; }
-    .hero-subtitle { font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+    /* BOUTON SE CONNECTER (FIX) */
+    .login-btn-container button {
+        white-space: nowrap !important;
+        width: auto !important;
+        min-width: 150px !important;
+    }
     
-    .feature-card { padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s; height: 100%; display: flex; flex-direction: column; align-items: center; }
+    /* LANDING PAGE STYLES */
+    .hero-title { 
+        font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
+    }
+    .hero-subtitle { 
+        font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
+    }
+    
+    /* FEATURES GRID (Clean sans emoji) */
+    .feature-card {
+        padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
+        height: 100%; display: flex; flex-direction: column; align-items: center;
+    }
     .feature-card:hover { border-color: #0055FF; transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
     .feature-icon svg { width: 32px; height: 32px; stroke: #0055FF; margin-bottom: 20px; }
     .feature-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: #000; }
     .feature-desc { font-size: 14px; color: #666; line-height: 1.5; }
 
+    /* BOUTONS NAVIGATION APP */
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
     .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
     
-    div[data-testid="stHorizontalBlock"] .stButton>button, .primary-btn, .stFormSubmitButton>button, div.stButton > button:first-child { 
+    /* BOUTONS ACTIONS BLEUS */
+    div[data-testid="stHorizontalBlock"] .stButton>button, 
+    .primary-btn, 
+    .stFormSubmitButton>button, 
+    div.stButton > button:first-child { 
         background-color: #0055FF !important; color: white !important; text-align: center !important; 
         border-radius: 8px !important; padding: 12px 24px !important; font-weight: 600 !important; border: none !important;
         width: 100%; box-shadow: 0 10px 20px rgba(0,85,255,0.2) !important;
@@ -122,22 +135,43 @@ st.markdown("""
         background-color: #0044cc !important; transform: translateY(-2px);
     }
     
-    section[data-testid="stSidebar"] .stButton>button { background-color: transparent !important; color: #444 !important; box-shadow: none !important; text-align: left !important; }
-    section[data-testid="stSidebar"] .stButton>button:hover { background-color: #F0F5FF !important; color: #0055FF !important; }
+    /* Exception sidebar */
+    section[data-testid="stSidebar"] .stButton>button {
+        background-color: transparent !important; color: #444 !important; box-shadow: none !important; text-align: left !important;
+    }
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        background-color: #F0F5FF !important; color: #0055FF !important;
+    }
 
-    .kpi-card { background-color: white; border: 1px solid #E5E5E5; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 110px; }
+    /* CARTES STATS */
+    .kpi-card {
+        background-color: white; border: 1px solid #E5E5E5; padding: 20px; 
+        border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 110px;
+    }
     .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 8px; font-weight: 600; }
     .kpi-value { font-size: 28px; font-weight: 700; color: #0055FF; }
     .kpi-sub { font-size: 11px; color: #888; margin-top: 5px; }
     
+    /* INPUTS */
     .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
+    
+    /* TAGS */
     .skill-tag { display: inline-block; padding: 5px 10px; margin: 2px; background: #F0F5FF; color: #0055FF; border-radius: 15px; font-size: 12px; font-weight: bold; border: 1px solid #0055FF20; }
     
-    .sub-card { background-color: #1a1a1a; color: white; padding: 25px; border-radius: 15px; border: 1px solid #333; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-bottom: 20px; }
+    /* CARTE ABONNEMENT */
+    .sub-card {
+        background-color: #1a1a1a; color: white; padding: 25px; border-radius: 15px; 
+        border: 1px solid #333; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-bottom: 20px;
+    }
     .sub-name { color: #0055FF; font-size: 14px; font-weight: 800; letter-spacing: 2px; margin-bottom: 10px; }
     .sub-price { font-size: 32px; font-weight: 700; margin-bottom: 5px; color: white; }
     .sub-period { font-size: 14px; color: #888; font-weight: 400; }
-    .sub-badge { background-color: #00C853; color: white; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; position: absolute; top: 20px; right: 20px; }
+    .sub-badge {
+        background-color: #00C853; color: white; padding: 4px 10px; 
+        border-radius: 20px; font-size: 10px; font-weight: bold;
+        position: absolute; top: 20px; right: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -146,11 +180,15 @@ st.markdown("""
 # =========================================================
 
 def login_screen():
-    c1, c2 = st.columns([1, 6])
+    # Header simple avec ajustement colonne bouton
+    c1, c2 = st.columns([2, 8])
     with c1: st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
     with c2:
-        sc1, sc2, sc3 = st.columns([5, 0.5, 1.5])
-        if sc3.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
+        sc1, sc2 = st.columns([7, 2]) # Espace à gauche, bouton à droite
+        # Classe CSS spécifique pour empêcher le retour à la ligne
+        st.markdown('<div class="login-btn-container">', unsafe_allow_html=True)
+        if sc2.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.write(""); st.write(""); st.write(""); st.write("")
     
@@ -160,14 +198,14 @@ def login_screen():
     c_cta1, c_cta2, c_cta3 = st.columns([1, 1, 1])
     with c_cta2:
         with st.form("hero_cta"):
-            if st.form_submit_button("DÉMARRER L'ESSAI GRATUIT"): st.session_state.auth_view = 'signup'; st.rerun()
-        st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Sans carte bancaire • Configuration en 2 minutes</div>", unsafe_allow_html=True)
+            if st.form_submit_button("CRÉER UN COMPTE GRATUIT"): st.session_state.auth_view = 'signup'; st.rerun()
+        st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès immédiat • Paiement à la consommation IA</div>", unsafe_allow_html=True)
 
     st.write(""); st.write(""); st.write("")
     c_f1, c_f2, c_f3 = st.columns(3)
-    with c_f1: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div><div class="feature-title">Analyse IA</div><div class="feature-desc">Extraction automatique des critères, délais et pénalités de vos DCE.</div></div>""", unsafe_allow_html=True)
-    with c_f2: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div><div class="feature-title">Gestion Administrative</div><div class="feature-desc">Génération automatique des formulaires DC1, DC2 et dossiers de candidature.</div></div>""", unsafe_allow_html=True)
-    with c_f3: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg></div><div class="feature-title">Tableau de Bord</div><div class="feature-desc">Suivez votre taux de succès et votre chiffre d'affaires prévisionnel en temps réel.</div></div>""", unsafe_allow_html=True)
+    with c_f1: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div><div class="feature-title">Analyse Sémantique</div><div class="feature-desc">Notre IA lit et comprend vos cahiers des charges. Elle extrait instantanément les critères et délais.</div></div>""", unsafe_allow_html=True)
+    with c_f2: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div><div class="feature-title">Gestion Administrative</div><div class="feature-desc">Fini la saisie manuelle. Lexus pré-remplit vos DC1, DC2 et documents de conformité.</div></div>""", unsafe_allow_html=True)
+    with c_f3: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg></div><div class="feature-title">Pilotage Financier</div><div class="feature-desc">Un tableau de bord clair pour suivre vos taux de succès et votre CA prévisionnel.</div></div>""", unsafe_allow_html=True)
     st.write(""); st.markdown("<hr style='border:0; border-top:1px solid #eee; margin: 50px 0;'>", unsafe_allow_html=True)
     st.markdown("<div style='text-align:center; color:#888; font-size:12px;'>© 2026 LEXUS Enterprise. Logiciel SaaS pour le BTP.</div>", unsafe_allow_html=True)
 
@@ -275,7 +313,10 @@ with st.sidebar:
 
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
-    st.markdown(f"<div style='font-size:11px; color:#999; margin-top:10px;'>SERVEUR : <span style='color:#00C853; font-weight:bold;'>{API_STATUS}</span></div>", unsafe_allow_html=True)
+    
+    # Indicateur discret
+    status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
+    st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
 
 # --- PAGES ---
 
@@ -284,10 +325,16 @@ if st.session_state.page == 'dashboard':
     st.markdown(f"## Espace <span style='color:#0055FF'>{st.session_state.company_info['name']}</span>", unsafe_allow_html=True)
     total = sum(p['budget'] for p in st.session_state.projects)
     c1, c2, c3 = st.columns(3)
+    # KPI dynamiques
     with c1: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">CA PRÉVISIONNEL</div><div class="kpi-value">{total:,.0f} €</div></div>""", unsafe_allow_html=True)
-    with c2: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">TAUX DE SUCCÈS</div><div class="kpi-value">32%</div></div>""", unsafe_allow_html=True)
+    # Taux succès basé sur données réelles (si possible, sinon 0)
+    taux = 0
+    if len(st.session_state.projects) > 0: taux = 32 # Placeholder, à connecter aux statuts gagnés/perdus plus tard
+    with c2: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">TAUX DE SUCCÈS</div><div class="kpi-value">{taux}%</div></div>""", unsafe_allow_html=True)
     with c3: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">DOSSIERS ACTIFS</div><div class="kpi-value">{len(st.session_state.projects)}</div></div>""", unsafe_allow_html=True)
+    
     st.write(""); st.write(""); st.caption("APPELS D'OFFRE / DOSSIERS")
+    
     if not st.session_state.projects: st.info("Aucun dossier en cours.")
     for p in st.session_state.projects:
         with st.container():
@@ -296,6 +343,7 @@ if st.session_state.page == 'dashboard':
             c2.markdown(f"<span style='color:#0055FF; font-weight:bold;'>{p['budget']:,.0f} €</span>", unsafe_allow_html=True)
             if c3.button("Ouvrir", key=f"open_{p['id']}"): st.session_state.current_project = p; st.session_state.page = 'project'; st.rerun()
             st.markdown("<hr style='margin:10px 0; border-color:#eee;'>", unsafe_allow_html=True)
+            
     with st.expander("Ajouter un nouvel appel d'offre +"):
         with st.form("new_ao"):
             n_name = st.text_input("Nom"); n_client = st.text_input("Client"); n_budget = st.number_input("Budget", value=0)
@@ -320,8 +368,7 @@ elif st.session_state.page == 'project':
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
             if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
-                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
+                    res = analyze(img, f"Projet : {p['name']}. Extrais Matching, RSE, Délai, Pénalités.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
