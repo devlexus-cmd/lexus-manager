@@ -14,9 +14,9 @@ st.set_page_config(layout="wide", page_title="Lexus Enterprise", initial_sidebar
 
 # --- 2. CONFIGURATION ABONNEMENTS ---
 PLANS = {
-    "GRATUIT": {"limit": 3, "price": "0€", "label": "START", "link": None, "features": ["3 analyses / semaine", "Tableau de bord basique"]},
-    "PRO": {"limit": 30, "price": "15€", "label": "PRO", "link": "https://buy.stripe.com/votre_lien_pro", "features": ["30 analyses / semaine", "Export PDF illimité", "Support prioritaire"]},
-    "ULTRA": {"limit": 999999, "price": "55€", "label": "BUSINESS", "link": "https://buy.stripe.com/votre_lien_ultra", "features": ["Analyses illimitées", "IA Modèle Supérieur", "API Access"]}
+    "GRATUIT": {"limit": 3, "price": "0€", "label": "DÉCOUVERTE", "link": None},
+    "PRO": {"limit": 30, "price": "15€", "label": "PROFESSIONNEL", "link": "https://buy.stripe.com/votre_lien_pro"},
+    "ULTRA": {"limit": 999999, "price": "55€", "label": "ILLIMITÉ", "link": "https://buy.stripe.com/votre_lien_ultra"}
 }
 
 # --- 3. BASE DE DONNÉES LOCALE ---
@@ -52,8 +52,7 @@ if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = 'dashboard'
 if 'current_project' not in st.session_state: st.session_state.current_project = None
 if 'company_info' not in st.session_state: 
-    # AJOUT DU CA N-3 ICI
-    st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0, "ca_n3": 0}
+    st.session_state.company_info = {"name": "LEXUS Enterprise", "siret": "", "address": "", "city": "", "rep_legal": "", "ca_n1": 0, "ca_n2": 0}
 
 if 'subscription_plan' not in st.session_state: st.session_state.subscription_plan = "GRATUIT"
 if 'credits_used' not in st.session_state: st.session_state.credits_used = 0
@@ -66,153 +65,115 @@ if 'user_criteria' not in st.session_state:
         "max_distance": 50,
         "certifications": [],
         "min_turnover_required": 0,
-        "max_penalties": 5,
-        "market_type": ["Public", "Privé"], # NOUVEAU
-        "forbidden_keywords": [] # NOUVEAU
+        "max_penalties": 5
     }
 if 'user_skills' not in st.session_state: st.session_state.user_skills = st.session_state.user_criteria['skills']
 if 'projects' not in st.session_state: st.session_state.projects = []
 
-# --- 5. CSS PRO (DENSE & PRÉCIS) ---
+# --- 5. CSS (RESTAURATION DESIGN V10.5 - FOND BLANC STRICT) ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
     
-    .stApp { background-color: #F8F9FA; color: #111111; font-family: 'Inter', sans-serif; }
+    /* BASE */
+    .stApp { background-color: #FFFFFF; color: #111111; font-family: 'Inter', sans-serif; }
+    
+    /* HIDE STREAMLIT ELEMENTS */
     .stApp > header { visibility: hidden; }
-    
-    /* SIDEBAR */
-    section[data-testid="stSidebar"] { 
-        background-color: #FFFFFF; 
-        border-right: 1px solid #E5E5E5;
-        box-shadow: 2px 0 10px rgba(0,0,0,0.02);
-    }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
     
     /* LOGO */
-    .lexus-logo-text { font-weight: 300; font-size: 22px; letter-spacing: -0.5px; color: #000 !important; }
+    .lexus-logo-text { font-weight: 300; font-size: 24px; letter-spacing: -1px; color: #000 !important; }
     .lexus-dot { color: #0055FF; font-weight: 700; font-size: 28px; line-height: 0; }
     
-    /* BOUTONS NAVIGATION */
-    .stButton>button { 
-        background-color: transparent; color: #555; border: none; text-align: left; 
-        padding: 8px 15px; font-weight: 500; border-radius: 6px; margin-bottom: 2px;
+    /* LANDING PAGE HERO */
+    .hero-title { 
+        font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; color: #000; letter-spacing: -2px; text-align: center;
     }
-    .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; font-weight: 600; }
+    .hero-subtitle { 
+        font-size: 20px; font-weight: 300; color: #666; margin-bottom: 40px; text-align: center; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.5;
+    }
     
-    /* BOUTONS ACTIONS BLEUS */
-    .primary-btn { 
-        background-color: #0055FF !important; color: white !important; 
-        border-radius: 6px !important; padding: 10px 20px !important; 
-        font-weight: 600 !important; border: none !important;
-        box-shadow: 0 4px 12px rgba(0,85,255,0.2) !important;
+    /* FEATURES CARDS (LANDING) */
+    .feature-card {
+        padding: 40px 30px; border: 1px solid #eee; border-radius: 12px; text-align: center; transition: 0.3s;
+        height: 100%; display: flex; flex-direction: column; align-items: center;
+    }
+    .feature-card:hover { border-color: #0055FF; transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .feature-icon svg { width: 32px; height: 32px; stroke: #0055FF; margin-bottom: 20px; }
+    .feature-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: #000; }
+    .feature-desc { font-size: 14px; color: #666; line-height: 1.5; }
+
+    /* DASHBOARD CARDS (PROPRE & PRO) */
+    .dashboard-card {
+        background-color: #FFFFFF;
+        border: 1px solid #E5E5E5;
+        border-radius: 10px;
+        padding: 25px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    .dashboard-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #0055FF;
+        margin-bottom: 5px;
+    }
+    .dashboard-label {
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
     }
 
-    /* CARTES DASHBOARD */
-    .kpi-card { 
-        background-color: white; border: 1px solid #E5E5E5; padding: 24px; 
-        border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-        display: flex; flex-direction: column; height: 100%;
+    /* BUTTONS */
+    .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
+    .stButton>button:hover { color: #0055FF; background-color: #F0F5FF; border-radius: 8px; padding-left: 10px; }
+    
+    /* ACTIONS (BLEU) */
+    div[data-testid="stHorizontalBlock"] .stButton>button, 
+    .primary-btn, 
+    .stFormSubmitButton>button, 
+    div.stButton > button:first-child { 
+        background-color: #0055FF !important; color: white !important; text-align: center !important; 
+        border-radius: 8px !important; padding: 12px 24px !important; font-weight: 600 !important; border: none !important;
+        width: 100%; box-shadow: 0 10px 20px rgba(0,85,255,0.2) !important;
     }
-    .kpi-label { font-size: 11px; text-transform: uppercase; color: #888; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .kpi-value { font-size: 28px; font-weight: 700; color: #111; }
-    .kpi-trend { font-size: 12px; color: #00C853; font-weight: 500; margin-top: 5px; }
-
-    /* STUDIO CARDS */
-    .studio-card {
-        background: white; border: 1px solid #E5E5E5; border-radius: 12px; padding: 25px;
-        text-align: center; transition: all 0.2s; cursor: pointer; height: 100%;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
+    div[data-testid="stHorizontalBlock"] .stButton>button:hover, .stFormSubmitButton>button:hover {
+        background-color: #0044cc !important; transform: translateY(-2px);
     }
-    .studio-card:hover { border-color: #0055FF; box-shadow: 0 5px 20px rgba(0,85,255,0.1); transform: translateY(-3px); }
-    .studio-icon { font-size: 32px; color: #0055FF; margin-bottom: 15px; }
-    .studio-title { font-weight: 600; font-size: 16px; margin-bottom: 5px; color: #111; }
-    .studio-desc { font-size: 12px; color: #666; line-height: 1.4; }
-
-    /* PRICING TABLE */
-    .pricing-col {
-        background: white; border: 1px solid #E5E5E5; border-radius: 16px; padding: 30px;
-        text-align: center; transition: 0.3s; position: relative;
+    
+    /* SIDEBAR EXCEPTION */
+    section[data-testid="stSidebar"] .stButton>button {
+        background-color: transparent !important; color: #444 !important; box-shadow: none !important; text-align: left !important;
     }
-    .pricing-col.featured { border: 2px solid #0055FF; box-shadow: 0 10px 40px rgba(0,85,255,0.1); transform: scale(1.02); z-index: 10; }
-    .p-name { font-size: 14px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 1px; }
-    .p-price { font-size: 42px; font-weight: 800; color: #111; margin: 15px 0; }
-    .p-feat { text-align: left; margin: 20px 0; font-size: 14px; color: #555; }
-    .p-feat li { margin-bottom: 10px; list-style: none; }
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        background-color: #F0F5FF !important; color: #0055FF !important;
+    }
     
     /* INPUTS */
-    .stTextInput>div>div>input { background-color: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 8px; color: #111; }
+    .stTextInput>div>div>input { background-color: #FAFAFA !important; color: #000; border: 1px solid #E0E0E0; border-radius: 8px; }
+    
+    /* TAGS */
+    .skill-tag { display: inline-block; padding: 5px 10px; margin: 2px; background: #F0F5FF; color: #0055FF; border-radius: 15px; font-size: 12px; font-weight: bold; border: 1px solid #0055FF20; }
 </style>
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === FONCTIONS ===
+# === PARTIE 1 : LANDING PAGE (RESTAURÉE V10.5) ===
 # =========================================================
 
-# MOTEUR PDF (AVEC CA N-3 AJOUTÉ)
-class PDF(FPDF):
-    def header(self):
-        self.set_font('Helvetica', 'B', 10); self.cell(0, 10, 'FORMULAIRE DC1 - LETTRE DE CANDIDATURE', align='C', new_x="LMARGIN", new_y="NEXT"); self.ln(5)
-    def footer(self):
-        self.set_y(-15); self.set_font('Helvetica', 'I', 8); self.cell(0, 10, f'Page {self.page_no()}', align='C')
-
-def create_pdf_dc(info, project):
-    pdf = PDF(); pdf.add_page(); pdf.set_font("Helvetica", size=10); pdf.set_fill_color(248, 249, 250)
-    date_str = str(datetime.date.today())
-    
-    # Bloc Identité
-    pdf.set_font("Helvetica", 'B', 11); pdf.cell(0, 8, "A - POUVOIR ADJUDICATEUR", fill=True, new_x="LMARGIN", new_y="NEXT"); pdf.ln(2)
-    pdf.set_font("Helvetica", size=10); pdf.multi_cell(0, 6, f"Client : {project['client']}\nObjet : {project['name']}\nDate : {date_str}"); pdf.ln(5)
-    
-    # Bloc Candidat
-    pdf.set_font("Helvetica", 'B', 11); pdf.cell(0, 8, "B - CANDIDAT", fill=True, new_x="LMARGIN", new_y="NEXT"); pdf.ln(2)
-    pdf.set_font("Helvetica", size=10); pdf.multi_cell(0, 6, f"Société : {info.get('name', '')}\nSIRET : {info.get('siret', '')}\nAdresse : {info.get('address', '')}"); pdf.ln(5)
-    
-    # Bloc Capacités (AVEC CA N-3)
-    pdf.set_font("Helvetica", 'B', 11); pdf.cell(0, 8, "C - CAPACITÉS FINANCIÈRES", fill=True, new_x="LMARGIN", new_y="NEXT"); pdf.ln(2)
-    pdf.set_font("Helvetica", size=10)
-    pdf.multi_cell(0, 6, f"CA N-1 : {info.get('ca_n1', 0)} EUR\nCA N-2 : {info.get('ca_n2', 0)} EUR\nCA N-3 : {info.get('ca_n3', 0)} EUR") # AJOUT CA N-3
-    pdf.ln(5)
-    
-    return bytes(pdf.output())
-
-# IA CONNECTÉE
-try:
-    api_key = st.secrets.get("GOOGLE_API_KEY", None)
-    if api_key:
-        genai.configure(api_key=api_key)
-        m = [model.name for model in genai.list_models() if 'generateContent' in model.supported_generation_methods]
-        # Auto-detect meilleur modèle
-        if "models/gemini-1.5-flash" in m: active_model = "models/gemini-1.5-flash"
-        elif "models/gemini-1.5-pro" in m: active_model = "models/gemini-1.5-pro"
-        else: active_model = m[0] if m else None
-        API_STATUS = "ONLINE"
-    else: active_model = None; API_STATUS = "OFFLINE"
-except: active_model = None; API_STATUS = "LOCAL"
-
-def analyze(image, prompt):
-    plan_info = PLANS.get(st.session_state.subscription_plan, PLANS["GRATUIT"])
-    if st.session_state.credits_used >= plan_info['limit']: return f"⚠️ LIMITE ATTEINTE. Upgradez votre plan."
-    if not active_model: return "⚠️ Clé API invalide."
-    try:
-        model = genai.GenerativeModel(active_model)
-        res = model.generate_content([prompt, image]).text
-        st.session_state.credits_used += 1
-        return res
-    except Exception as e: return f"Erreur : {str(e)}"
-
-# =========================================================
-# === INTERFACE ===
-# =========================================================
-
-# LANDING & LOGIN (CODE IDENTIQUE V10.5)
 def login_screen():
-    c1, c2 = st.columns([1, 6])
+    c1, c2 = st.columns([2, 8])
     with c1: st.markdown("<div style='padding-top:10px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
     with c2:
-        sc1, sc2, sc3 = st.columns([5, 0.5, 1.5])
-        if sc3.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
+        sc1, sc2 = st.columns([7, 2])
+        if sc2.button("Se connecter", key="btn_login_home"): st.session_state.auth_view = 'login'; st.rerun()
 
-    st.write(""); st.write(""); st.write("")
+    st.write(""); st.write(""); st.write(""); st.write("")
+    
     st.markdown("<div class='hero-title'>L'Intelligence Artificielle pour<br><span style='color:#0055FF'>vos marchés publics.</span></div>", unsafe_allow_html=True)
     st.markdown("<div class='hero-subtitle'>Centralisez vos appels d'offres. Analysez vos documents en un clic.<br>Générez vos dossiers administratifs sans erreur.</div>", unsafe_allow_html=True)
     
@@ -221,66 +182,140 @@ def login_screen():
         with st.form("hero_cta"):
             if st.form_submit_button("CRÉER UN COMPTE GRATUIT"): st.session_state.auth_view = 'signup'; st.rerun()
         st.markdown("<div style='text-align:center; font-size:12px; color:#888; margin-top:10px;'>Accès immédiat • Paiement à la consommation IA</div>", unsafe_allow_html=True)
-    
-    st.write(""); st.write("")
-    # (Features Grid conservée...)
+
+    st.write(""); st.write(""); st.write("")
+    c_f1, c_f2, c_f3 = st.columns(3)
+    with c_f1: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div><div class="feature-title">Analyse Sémantique</div><div class="feature-desc">Notre IA lit et comprend vos cahiers des charges. Elle extrait instantanément les critères et délais.</div></div>""", unsafe_allow_html=True)
+    with c_f2: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div><div class="feature-title">Gestion Administrative</div><div class="feature-desc">Fini la saisie manuelle. Lexus pré-remplit vos DC1, DC2 et documents de conformité.</div></div>""", unsafe_allow_html=True)
+    with c_f3: st.markdown("""<div class="feature-card"><div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg></div><div class="feature-title">Pilotage Financier</div><div class="feature-desc">Un tableau de bord clair pour suivre vos taux de succès et votre CA prévisionnel.</div></div>""", unsafe_allow_html=True)
+    st.write(""); st.markdown("<hr style='border:0; border-top:1px solid #eee; margin: 50px 0;'>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center; color:#888; font-size:12px;'>© 2026 LEXUS Enterprise. Logiciel SaaS pour le BTP.</div>", unsafe_allow_html=True)
 
 def auth_form(mode):
     c1, c2, c3 = st.columns([1, 1, 1])
     with c2:
-        st.markdown("<br><br><div style='text-align:center; margin-bottom:20px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center; margin-bottom:20px;'><span class='lexus-logo-text'>L A</span><span class='lexus-dot'>.</span></div>", unsafe_allow_html=True)
         st.markdown(f"<h3 style='text-align:center; margin-bottom:30px;'>{mode}</h3>", unsafe_allow_html=True)
         with st.form("auth"):
-            u = st.text_input("Email"); p = st.text_input("Mot de passe", type="password")
-            if mode == "Créer un compte": st.text_input("Société")
-            if st.form_submit_button("VALIDER"):
-                if mode=="Créer un compte": save_user(u, {"password":p,"role":"user","plan":"GRATUIT"}); st.session_state.auth_view='login'; st.success("Compte créé !"); time.sleep(1); st.rerun()
-                elif u in st.session_state.users_db and st.session_state.users_db[u]["password"]==p:
-                    st.session_state.authenticated=True; st.session_state.user_name=u; st.session_state.subscription_plan=st.session_state.users_db[u].get("plan","GRATUIT"); st.rerun()
-                else: st.error("Erreur.")
-        if st.button("Retour"): st.session_state.auth_view='landing'; st.rerun()
+            username = st.text_input("Identifiant / Email")
+            password = st.text_input("Mot de passe", type="password")
+            if mode == "Créer un compte": st.text_input("Nom de l'entreprise")
+            btn_text = "SE CONNECTER" if mode == "Se connecter" else "S'INSCRIRE"
+            
+            if st.form_submit_button(btn_text):
+                current_db = get_db()
+                if mode == "Créer un compte":
+                    if username in current_db:
+                        st.error("Cet identifiant existe déjà.")
+                    else:
+                        save_user(username, {"password": password, "role": "user", "plan": "GRATUIT", "email": username})
+                        st.success("Compte créé !"); time.sleep(1); st.session_state.auth_view = 'login'; st.rerun()
+                else:
+                    if username in current_db and current_db[username]["password"] == password:
+                        st.session_state.authenticated = True
+                        st.session_state.user_name = username
+                        st.session_state.user_role = current_db[username].get("role", "user")
+                        user_plan = current_db[username].get("plan", "GRATUIT")
+                        st.session_state.subscription_plan = user_plan
+                        st.session_state.credits_limit = PLANS[user_plan]["limit"]
+                        st.rerun()
+                    else: st.error("Identifiants incorrects.")
+        if st.button("← Retour"): st.session_state.auth_view = 'landing'; st.rerun()
 
 if not st.session_state.authenticated:
     if st.session_state.auth_view == 'landing': login_screen()
-    elif st.session_state.auth_view in ['login', 'signup']: auth_form("Connexion" if st.session_state.auth_view=='login' else "Créer un compte")
+    elif st.session_state.auth_view == 'login': auth_form("Se connecter")
+    elif st.session_state.auth_view == 'signup': auth_form("Créer un compte")
     st.stop()
 
-# --- APP ---
+# =========================================================
+# === PARTIE 2 : LOGICIEL MÉTIER ===
+# =========================================================
 
-# SIDEBAR
+# --- MOTEUR PDF ---
+class PDF(FPDF):
+    def header(self):
+        self.set_font('Helvetica', 'B', 10); self.cell(0, 10, 'FORMULAIRE DC1 - LETTRE DE CANDIDATURE', align='C', new_x="LMARGIN", new_y="NEXT"); self.ln(5)
+    def footer(self):
+        self.set_y(-15); self.set_font('Helvetica', 'I', 8); self.cell(0, 10, f'Page {self.page_no()} - Généré par LEXUS Enterprise', align='C')
+
+def create_pdf_dc(info, project):
+    pdf = PDF(); pdf.add_page(); pdf.set_font("Helvetica", size=10); pdf.set_fill_color(245, 245, 245)
+    date_str = str(datetime.date.today())
+    sections = [
+        ("A - POUVOIR ADJUDICATEUR", f"Client : {project['client']}\nObjet : {project['name']}\nDate : {date_str}"),
+        ("B - CANDIDAT", f"Société : {info.get('name', '')}\nSIRET : {info.get('siret', '')}\nAdresse : {info.get('address', '')}"),
+        ("C - CAPACITÉS", f"CA N-1 : {info.get('ca_n1', 0)} €\nCA N-2 : {info.get('ca_n2', 0)} €\nCA N-3 : {info.get('ca_n3', 0)} €"),
+        ("D - ENGAGEMENT", f"Signé par {info.get('rep_legal', '')}.\nFait à {info.get('city', '')}, le {date_str}")
+    ]
+    for title, content in sections:
+        pdf.set_font("Helvetica", 'B', 11); pdf.cell(0, 8, title, fill=True, new_x="LMARGIN", new_y="NEXT"); pdf.set_font("Helvetica", size=10); pdf.multi_cell(0, 6, content); pdf.ln(5)
+    return bytes(pdf.output())
+
+# --- CONNEXION IA ---
+API_STATUS = "OFFLINE"
+try:
+    api_key = st.secrets.get("GOOGLE_API_KEY", None)
+    if api_key:
+        genai.configure(api_key=api_key)
+        m = [model.name for model in genai.list_models() if 'generateContent' in model.supported_generation_methods]
+        if "models/gemini-1.5-flash" in m: active_model = "models/gemini-1.5-flash"
+        elif "models/gemini-1.5-pro" in m: active_model = "models/gemini-1.5-pro"
+        else: active_model = m[0] if m else None
+        API_STATUS = "ONLINE"
+    else: active_model = None
+except: active_model = None
+
+def analyze(image, prompt):
+    plan_info = PLANS.get(st.session_state.subscription_plan, PLANS["GRATUIT"])
+    if st.session_state.credits_used >= plan_info['limit']: return f"⚠️ LIMITE ATTEINTE ({plan_info['limit']}/sem). Passez à l'abonnement supérieur."
+    if not active_model: return "⚠️ Clé API invalide."
+    try:
+        model = genai.GenerativeModel(active_model)
+        res = model.generate_content([prompt, image]).text
+        st.session_state.credits_used += 1
+        return res
+    except Exception as e: return f"Erreur : {str(e)}"
+
+# --- SIDEBAR ---
 with st.sidebar:
     st.markdown("""<div style='margin-bottom:40px; padding-left:5px;'><span class='lexus-logo-text'>L</span><span style='color:#aaa; font-weight:200; font-size:26px;'>A</span><span class='lexus-dot'>.</span><div style='font-size:10px; letter-spacing:3px; font-weight:700; margin-top:5px; color:#444;'>LEXUS AI</div></div>""", unsafe_allow_html=True)
     if st.button("Tableau de bord"): st.session_state.page = 'dashboard'; st.rerun()
     if st.button("Lexus AI Studio"): st.session_state.page = 'studio'; st.rerun()
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
+    if st.session_state.get('user_role') == 'admin':
+        st.markdown("---"); 
+        if st.button("🔴 ADMIN PANEL"): st.session_state.page = 'admin'; st.rerun()
     st.markdown("---")
-    if st.button("Déconnexion"): st.session_state.authenticated = False; st.rerun()
-    
-# DASHBOARD (DENSIFIÉ)
+    if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
+    # STATUS SERVEUR (SANS EMOJI)
+    status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
+    st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
+
+# --- PAGES ---
+
+# DASHBOARD (NETTOYÉ ET SIMPLE)
 if st.session_state.page == 'dashboard':
     st.markdown(f"## Espace <span style='color:#0055FF'>{st.session_state.company_info['name']}</span>", unsafe_allow_html=True)
-    
-    # 1. KPIs
     total = sum(p['budget'] for p in st.session_state.projects)
     c1, c2, c3 = st.columns(3)
-    with c1: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">CA PRÉVISIONNEL</div><div class="kpi-value">{total:,.0f} €</div><div class="kpi-trend">Basé sur {len(st.session_state.projects)} dossiers</div></div>""", unsafe_allow_html=True)
-    with c2: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">CRÉDITS IA RESTANTS</div><div class="kpi-value">{PLANS[st.session_state.subscription_plan]['limit'] - st.session_state.credits_used}</div><div class="kpi-trend">Plan {st.session_state.subscription_plan}</div></div>""", unsafe_allow_html=True)
-    with c3: st.markdown(f"""<div class="kpi-card"><div class="kpi-label">ACTIONS REQUISES</div><div class="kpi-value">3</div><div class="kpi-trend" style="color:orange;">Urgent</div></div>""", unsafe_allow_html=True)
+    # CARTES CSS PROPRES (BLANC/BLEU)
+    with c1: st.markdown(f"""<div class="dashboard-card"><div class="dashboard-label">CA PRÉVISIONNEL</div><div class="dashboard-value">{total:,.0f} €</div></div>""", unsafe_allow_html=True)
+    with c2: st.markdown(f"""<div class="dashboard-card"><div class="dashboard-label">TAUX CONVERSION</div><div class="dashboard-value">32%</div></div>""", unsafe_allow_html=True)
+    with c3: st.markdown(f"""<div class="dashboard-card"><div class="dashboard-label">DOSSIERS ACTIFS</div><div class="dashboard-value">{len(st.session_state.projects)}</div></div>""", unsafe_allow_html=True)
     
-    # 2. ACTIVITÉ RÉCENTE (POUR REMPLIR LE VIDE)
-    st.write(""); st.subheader("Fil d'actualité")
-    st.info("ℹ️ **10:42** - Analyse IA terminée pour le dossier 'Groupe Alpha'.")
-    st.info("ℹ️ **Hier** - Nouveau document ajouté dans 'Rénovation Siège'.")
+    st.write(""); st.write(""); st.caption("APPELS D'OFFRE / DOSSIERS")
     
-    # 3. PROJETS
-    st.write(""); st.caption("DOSSIERS EN COURS")
-    for p in st.session_state.projects:
-        with st.container():
-            c1, c2, c3 = st.columns([3, 1, 1])
-            c1.markdown(f"**{p['name']}**<br><span style='color:#888; font-size:12px;'>{p['client']}</span>", unsafe_allow_html=True)
-            c2.markdown(f"**{p['budget']:,.0f} €**", unsafe_allow_html=True)
-            if c3.button("Ouvrir", key=f"open_{p['id']}"): st.session_state.current_project = p; st.session_state.page = 'project'; st.rerun()
-            st.markdown("<hr style='margin:5px 0; border-color:#eee;'>", unsafe_allow_html=True)
+    if not st.session_state.projects: st.info("Aucun dossier en cours. Créez votre premier projet ci-dessous.")
+    else:
+        for p in st.session_state.projects:
+            with st.container():
+                c1, c2, c3 = st.columns([3, 1, 1])
+                c1.markdown(f"**{p['name']}**<br><span style='color:#888; font-size:12px;'>{p['client']}</span>", unsafe_allow_html=True)
+                c2.markdown(f"<span style='color:#0055FF; font-weight:bold;'>{p['budget']:,.0f} €</span>", unsafe_allow_html=True)
+                if c3.button("Ouvrir", key=f"open_{p['id']}"): st.session_state.current_project = p; st.session_state.page = 'project'; st.rerun()
+                st.markdown("<hr style='margin:10px 0; border-color:#eee;'>", unsafe_allow_html=True)
             
     with st.expander("Ajouter un nouvel appel d'offre +"):
         with st.form("new_ao"):
@@ -289,7 +324,7 @@ if st.session_state.page == 'dashboard':
                 st.session_state.projects.append({"id": len(st.session_state.projects)+1, "name": n_name, "client": n_client, "budget": n_budget, "status": "NOUVEAU", "analysis_done": False, "match": 0, "rse": "-", "delay": "-", "penalty": "-"})
                 st.rerun()
 
-# PROJECT DETAIL (UNCHANGED)
+# DETAIL PROJET
 elif st.session_state.page == 'project':
     p = st.session_state.current_project
     if st.button("← Retour liste"): st.session_state.page = 'dashboard'; st.rerun()
@@ -301,20 +336,22 @@ elif st.session_state.page == 'project':
         for step in steps: st.checkbox(step, key=f"w_{p['id']}_{step}")
     with c_right:
         st.subheader("Analyse du Dossier")
-        uploaded_file = st.file_uploader("Importer le DCE (Image)", type=['png', 'jpg', 'jpeg'])
+        uploaded_file = st.file_uploader("Importer le DCE (Image/JPG/PNG)", type=['png', 'jpg', 'jpeg'])
         if uploaded_file:
             img = Image.open(uploaded_file); st.image(img, caption="Document chargé", width=200)
-            if st.button("LANCER L'ANALYSE IA", key="btn_ana_proj"):
+            if st.button("LANCER L'ANALYSE IA"):
                 with st.spinner("Extraction..."):
-                    res = analyze(img, f"Projet : {p['name']}. Extrais Matching, RSE, Délai, Pénalités.")
+                    criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
+                    res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
                     st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
             c1, c2, c3, c4 = st.columns(4)
-            with c1: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>MATCHING</div><div class='kpi-value'>{p['match']}%</div></div>", unsafe_allow_html=True)
-            with c2: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>RSE</div><div class='kpi-value'>{p['rse']}</div></div>", unsafe_allow_html=True)
-            with c3: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>DÉLAI</div><div class='kpi-value'>{p['delay']}</div></div>", unsafe_allow_html=True)
-            with c4: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>PÉNALITÉS</div><div class='kpi-value'>{p['penalty']}</div></div>", unsafe_allow_html=True)
+            # INDICATEURS RESTAURÉS (V6.7)
+            with c1: st.markdown(f"""<div class="dashboard-card"><div class="dashboard-label">MATCHING</div><div class="dashboard-value">{p['match']}%</div></div>""", unsafe_allow_html=True)
+            with c2: st.markdown(f"""<div class="dashboard-card"><div class="dashboard-label">RSE</div><div class="dashboard-value">{p['rse']}</div></div>""", unsafe_allow_html=True)
+            with c3: st.markdown(f"""<div class="dashboard-card"><div class="dashboard-label">DÉLAI</div><div class="dashboard-value">{p['delay']}</div></div>""", unsafe_allow_html=True)
+            with c4: st.markdown(f"""<div class="dashboard-card"><div class="dashboard-label">PÉNALITÉS</div><div class="dashboard-value">{p['penalty']}</div></div>""", unsafe_allow_html=True)
             with st.expander("Voir le Compte Rendu Détaillé", expanded=True):
                  if f"res_{p['id']}" in st.session_state: st.write(st.session_state[f"res_{p['id']}"])
             st.write("---")
@@ -322,110 +359,72 @@ elif st.session_state.page == 'project':
             pdf_data = create_pdf_dc(st.session_state.company_info, p)
             st.download_button(label="📄 TÉLÉCHARGER LE DC1 (PDF)", data=pdf_data, file_name=f"DC1_{p['name']}.pdf", mime="application/pdf")
 
-# LEXUS AI STUDIO (REFONDU & DESIGNÉ)
+# STUDIO IA
 elif st.session_state.page == 'studio':
     st.title("Lexus AI Studio")
-    st.write("Sélectionnez un outil pour lancer l'intelligence artificielle.")
-    
-    # SELECTEUR DE MODE CLAIR
-    mode_studio = st.radio("Mode", ["Analyse Globale", "Extraction Chiffres", "Conformité Juridique", "Rédaction Mail"], horizontal=True)
-    
-    c1, c2 = st.columns([1, 1])
+    c1, c2 = st.columns(2)
     with c1:
-        st.markdown(f"### 1. Import ({mode_studio})")
-        # Carte d'upload stylisée
-        f = st.file_uploader("Déposez votre document ici", type=['png', 'jpg', 'jpeg'])
-        
+        f = st.file_uploader("Document", type=['png', 'jpg', 'jpeg'])
+        mode = st.selectbox("Mode", ["Globale", "Devis", "Juridique"])
         if f:
             im = Image.open(f); st.image(im, width=300)
-            st.write("")
-            if st.button("LANCER L'ANALYSE", key="btn_studio"):
-                with st.spinner("Lexus AI travaille..."): st.session_state['studio_res'] = analyze(im, f"Mode expert: {mode_studio}")
-    
+            if st.button("ANALYSER"):
+                with st.spinner("Traitement..."): st.session_state['studio_res'] = analyze(im, f"Mode: {mode}")
     with c2:
-        st.markdown("### 2. Résultat")
-        if 'studio_res' in st.session_state:
-            st.success("Terminé")
-            st.text_area("Rapport", st.session_state['studio_res'], height=500)
-        else:
-            st.info("Le résultat s'affichera ici.")
+        if 'studio_res' in st.session_state: st.write(st.session_state['studio_res'])
 
-# PARAMETRES (AVEC CERFA COMPLET & ABONNEMENTS DESIGN)
+# ADMIN
+elif st.session_state.page == 'admin':
+    st.title("Console Administration")
+    current_db = get_db()
+    users_data = [{"Utilisateur": u, "Email": d.get("email"), "Plan": d.get("plan"), "Rôle": d.get("role")} for u, d in current_db.items()]
+    st.table(pd.DataFrame(users_data))
+    c1, c2, c3 = st.columns(3)
+    with c1: target_user = st.selectbox("Utilisateur", list(current_db.keys()))
+    with c2: target_plan = st.selectbox("Plan", ["GRATUIT", "PRO", "ULTRA"])
+    with c3: 
+        st.write(""); 
+        if st.button("Mettre à jour"): update_plan(target_user, target_plan); st.success("OK"); time.sleep(1); st.rerun()
+
+# PARAMETRES
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
-    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Abonnements", "Mentions Légales", "Données CERFA"])
-    
-    # 1. CRITÈRES EXPERTS (COMPLET)
+    t1, t2, t3, t4 = st.tabs(["Critères", "Mon Compte & Abo", "Mentions", "CERFA"])
     with t1:
-        st.subheader("Configuration de l'IA")
-        c_left, c_right = st.columns(2)
-        with c_left:
-            st.markdown("##### Technique")
-            st.multiselect("Compétences Clés", ["BTP", "Gros Oeuvre", "Elec", "Plomberie", "Finances", "Audit"], default=["BTP"])
-            st.text_area("Certifications (Qualibat...)", height=100)
-        with c_right:
-            st.markdown("##### Marché & Risques")
-            st.multiselect("Type de Marché visé", ["Public", "Privé", "Mixte"], default=["Public"])
-            st.number_input("CA Minimum du marché (€)", value=0)
-            st.slider("Pénalités max acceptées (%)", 0, 100, 5)
+        c_add, c_btn = st.columns([3, 1])
+        new_skill = c_add.text_input("Nouvelle compétence", label_visibility="collapsed")
+        if c_btn.button("AJOUTER"):
+            if new_skill: st.session_state.user_skills.append(new_skill); st.rerun()
+        for s in st.session_state.user_skills: st.markdown(f"<span class='skill-tag'>{s}</span>", unsafe_allow_html=True)
+        if st.button("Effacer tout"): st.session_state.user_skills = []; st.rerun()
+        st.divider()
+        st.subheader("Finances")
+        st.session_state.user_criteria['min_daily_rate'] = st.number_input("Taux Journalier", value=450)
+        st.session_state.user_criteria['max_penalties'] = st.slider("Pénalités max (%)", 0, 20, 5)
 
-    # 2. ABONNEMENTS (DESIGN TABLEAU DE PRIX)
     with t2:
-        st.subheader("Mon Offre")
-        
-        # Affichage Grid Pricing
-        cols = st.columns(3)
-        
-        # PLAN GRATUIT
-        with cols[0]:
-            st.markdown(f"""
-            <div class="pricing-col">
-                <div class="p-name">START</div>
-                <div class="p-price">0€</div>
-                <div class="p-feat"><li>3 essais / sem</li><li>Dashboard limité</li></div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.session_state.subscription_plan == "GRATUIT": st.button("ACTUEL", disabled=True, key="p1")
-            else: 
-                if st.button("CHOISIR", key="p1"): st.session_state.subscription_plan="GRATUIT"; st.rerun()
-
-        # PLAN PRO
-        with cols[1]:
-            st.markdown(f"""
-            <div class="pricing-col featured">
-                <div class="p-name" style="color:#0055FF">PRO</div>
-                <div class="p-price">15€<small style="font-size:14px; color:#888">/mois</small></div>
-                <div class="p-feat"><li>30 analyses / sem</li><li>Export PDF</li><li>Support</li></div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.session_state.subscription_plan == "PRO": st.button("ACTUEL", disabled=True, key="p2")
-            else: st.link_button("S'ABONNER", PLANS["PRO"]["link"])
-
-        # PLAN ULTRA
-        with cols[2]:
-            st.markdown(f"""
-            <div class="pricing-col">
-                <div class="p-name">BUSINESS</div>
-                <div class="p-price">55€<small style="font-size:14px; color:#888">/mois</small></div>
-                <div class="p-feat"><li>Illimité</li><li>IA Prioritaire</li><li>API Access</li></div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.session_state.subscription_plan == "ULTRA": st.button("ACTUEL", disabled=True, key="p3")
-            else: st.link_button("S'ABONNER", PLANS["ULTRA"]["link"])
-
-    # 3. CERFA (AVEC CA N-3)
+        st.subheader("Mon Abonnement")
+        c_plan, c_usage = st.columns([1, 1])
+        with c_plan:
+            plan = st.session_state.subscription_plan
+            st.info(f"PLAN ACTUEL : {PLANS[plan]['label']} ({PLANS[plan]['price']})")
+            c_p, c_u = st.columns(2)
+            if PLANS["PRO"]["link"]: c_p.link_button("PASSER PRO", PLANS["PRO"]["link"])
+            if PLANS["ULTRA"]["link"]: c_u.link_button("PASSER ULTRA", PLANS["ULTRA"]["link"])
+        with c_usage:
+            limit = PLANS[plan]['limit']
+            used = st.session_state.credits_used
+            st.write(f"**Consommation : {used} / {limit}**")
+            st.progress(min(used/limit, 1.0) if limit < 9999 else 0)
+    with t3: st.text_area("Texte légal", height=100)
     with t4:
         with st.form("cerfa"):
-            st.subheader("Données Administratives (DC1/DC2)")
             i = st.session_state.company_info
             c1, c2 = st.columns(2)
             i['name'] = c1.text_input("Dénomination", value=i['name']); i['siret'] = c2.text_input("SIRET", value=i['siret'])
             i['address'] = c1.text_input("Adresse", value=i['address']); i['city'] = c2.text_input("Ville", value=i['city'])
             i['rep_legal'] = c1.text_input("Représentant", value=i['rep_legal'])
-            st.markdown("**Chiffres d'affaires**")
             c3, c4, c5 = st.columns(3)
             i['ca_n1'] = c3.number_input("CA N-1", value=i['ca_n1']); i['ca_n2'] = c4.number_input("CA N-2", value=i['ca_n2'])
-            i['ca_n3'] = c5.number_input("CA N-3", value=i.get('ca_n3', 0)) # Ajout N-3
-            
-            if st.form_submit_button("SAUVEGARDER"): 
-                st.session_state.company_info = i; st.success("OK")
+            i['ca_n3'] = c5.number_input("CA N-3", value=i.get('ca_n3', 0))
+            if st.form_submit_button("SAUVEGARDER"): st.session_state.company_info = i; st.success("OK")
