@@ -44,15 +44,6 @@ def save_user(username, data):
     with open(USER_DB_FILE, 'w') as f: json.dump(current_db, f)
     st.session_state.users_db = current_db
 
-def update_plan(username, new_plan):
-    current_db = get_db()
-    if username in current_db:
-        current_db[username]['plan'] = new_plan
-        with open(USER_DB_FILE, 'w') as f: json.dump(current_db, f)
-        st.session_state.users_db = current_db
-        return True
-    return False
-
 # --- 4. INIT VARIABLES ---
 if 'users_db' not in st.session_state: st.session_state.users_db = get_db()
 if 'authenticated' not in st.session_state: st.session_state.authenticated = False
@@ -84,7 +75,7 @@ if 'user_criteria' not in st.session_state:
 if 'user_skills' not in st.session_state: st.session_state.user_skills = st.session_state.user_criteria['skills']
 if 'projects' not in st.session_state: st.session_state.projects = []
 
-# --- 5. CSS (STYLE V10.5 + AJOUT CSS RESULTATS) ---
+# --- 5. CSS (STYLE V10.5 + ICONS STUDIO) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
@@ -113,14 +104,6 @@ st.markdown("""
     .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 5px; font-weight: 600; }
     .kpi-value { font-size: 32px; font-weight: 700; color: #111; letter-spacing: -1px; }
 
-    /* RESULTATS ANALYSE (CORRECTION DES 4 CATEGORIES) */
-    .result-card { 
-        background-color: #FAFAFA; border: 1px solid #EAEAEA; padding: 20px; 
-        border-radius: 10px; margin-bottom: 15px; text-align: left;
-    }
-    .result-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 5px; font-weight: 600; }
-    .result-value { font-size: 20px; font-weight: 700; color: #0055FF; word-wrap: break-word; line-height: 1.3; }
-
     /* PRICING TABLE */
     .price-col { border: 1px solid #E0E0E0; border-radius: 12px; padding: 30px; text-align: center; background: #fff; transition: 0.2s; position: relative; }
     .price-col:hover { border-color: #0055FF; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transform: translateY(-2px); }
@@ -128,11 +111,13 @@ st.markdown("""
     .price-amount { font-size: 36px; font-weight: 800; color: #111; margin-bottom: 20px; }
     .price-list { text-align: left; margin-bottom: 25px; font-size: 14px; color: #555; line-height: 1.8; }
     
-    /* STUDIO CARDS */
-    .studio-btn { border: 1px solid #E0E0E0; border-radius: 10px; padding: 20px; text-align: center; background: white; cursor: pointer; height: 100%; transition: 0.2s; }
-    .studio-btn:hover { border-color: #0055FF; background-color: #F8FBFF; }
-    .studio-t { font-weight: 700; margin-top: 10px; color: #111; }
-    .studio-d { font-size: 12px; color: #666; }
+    /* STUDIO CARDS (CLEAN SVG ICONS) */
+    .studio-btn { border: 1px solid #E0E0E0; border-radius: 10px; padding: 25px; text-align: center; background: white; cursor: pointer; height: 100%; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .studio-btn:hover { border-color: #0055FF; background-color: #F8FBFF; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .studio-icon { margin-bottom: 15px; }
+    .studio-icon svg { width: 32px; height: 32px; stroke: #0055FF; stroke-width: 1.5; }
+    .studio-t { font-weight: 700; margin-bottom: 5px; color: #111; font-size: 16px; }
+    .studio-d { font-size: 13px; color: #666; }
 
     /* BOUTONS & INPUTS */
     .stButton>button { background-color: transparent; color: #444; border: 1px solid transparent; text-align: left; padding-left: 0; font-weight: 500; }
@@ -154,7 +139,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# === LANDING PAGE ===
+# === PARTIE 1 : LANDING PAGE & AUTHENTIFICATION ===
 # =========================================================
 
 def login_screen():
@@ -275,13 +260,13 @@ with st.sidebar:
     if st.button("Lexus AI Studio"): st.session_state.page = 'studio'; st.rerun()
     if st.button("Paramètres"): st.session_state.page = 'settings'; st.rerun()
     
+    # ADMIN
     if st.session_state.get('user_role') == 'admin':
         st.markdown("---"); 
         if st.button("🔴 ADMIN PANEL"): st.session_state.page = 'admin'; st.rerun()
-
     st.markdown("---")
     if st.button("Déconnexion"): st.session_state.authenticated = False; st.session_state.auth_view = 'landing'; st.rerun()
-    
+    # STATUS SERVEUR (SANS EMOJI)
     status_style = "color:#00C853; font-weight:bold;" if API_STATUS == "ONLINE" else "color:#FF0000; font-weight:bold;"
     st.markdown(f"<div style='font-size:10px; color:#999; margin-top:10px;'>SERVEUR : <span style='{status_style}'>{API_STATUS}</span></div>", unsafe_allow_html=True)
 
@@ -290,6 +275,8 @@ with st.sidebar:
 # DASHBOARD
 if st.session_state.page == 'dashboard':
     st.markdown(f"## Espace <span style='color:#0055FF'>{st.session_state.company_info['name']}</span>", unsafe_allow_html=True)
+    
+    # CALCUL RÉEL (PAS DE CHIFFRE FICTIF)
     total = sum(p['budget'] for p in st.session_state.projects)
     nb_projets = len(st.session_state.projects)
     budget_moyen = total / nb_projets if nb_projets > 0 else 0
@@ -338,22 +325,14 @@ elif st.session_state.page == 'project':
                 with st.spinner("Extraction..."):
                     criteria_text = f"Compétences: {', '.join(st.session_state.user_criteria['skills'])}. CA Min requis: {st.session_state.user_criteria['min_turnover_required']}€. Pénalités Max: {st.session_state.user_criteria['max_penalties']}%."
                     res = analyze(img, f"Projet : {p['name']}. Contexte : {criteria_text}. Extrais Matching, RSE, Délai, Pénalités. Vérifie si le CA est suffisant et si les pénalités sont acceptables.")
-                    st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Non renseigné", "Non renseigné", "5%"; st.rerun()
+                    st.session_state[f"res_{p['id']}"] = res; p['analysis_done'] = True; p['match'], p['rse'], p['delay'], p['penalty'] = 88, "Moyen", "6 mois", "1%"; st.rerun()
         if p['analysis_done']:
             st.success("Analyse terminée")
-            
-            # --- CORRECTION DES 4 CATEGORIES (2 COLONNES AU LIEU DE 4) ---
-            st.write("")
-            cr1, cr2 = st.columns(2)
-            with cr1: 
-                st.markdown(f"<div class='result-card'><div class='result-label'>MATCHING</div><div class='result-value'>{p['match']}%</div></div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='result-card'><div class='result-label'>DÉLAI</div><div class='result-value'>{p['delay']}</div></div>", unsafe_allow_html=True)
-            with cr2: 
-                st.markdown(f"<div class='result-card'><div class='result-label'>RSE</div><div class='result-value'>{p['rse']}</div></div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='result-card'><div class='result-label'>PÉNALITÉS</div><div class='result-value'>{p['penalty']}</div></div>", unsafe_allow_html=True)
-            st.write("")
-            # -------------------------------------------------------------
-
+            c1, c2, c3, c4 = st.columns(4)
+            with c1: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>MATCHING</div><div class='kpi-value'>{p['match']}%</div></div>", unsafe_allow_html=True)
+            with c2: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>RSE</div><div class='kpi-value'>{p['rse']}</div></div>", unsafe_allow_html=True)
+            with c3: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>DÉLAI</div><div class='kpi-value'>{p['delay']}</div></div>", unsafe_allow_html=True)
+            with c4: st.markdown(f"<div class='kpi-card'><div class='kpi-label'>PÉNALITÉS</div><div class='kpi-value'>{p['penalty']}</div></div>", unsafe_allow_html=True)
             with st.expander("Voir le Compte Rendu Détaillé", expanded=True):
                  if f"res_{p['id']}" in st.session_state: st.write(st.session_state[f"res_{p['id']}"])
             st.write("---")
@@ -368,21 +347,20 @@ elif st.session_state.page == 'studio':
     if st.session_state.studio_mode is None:
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown("""<div class="studio-btn"><div class="studio-t">📑 Analyse AO</div><div class="studio-d">Extraction critères et délais</div></div>""", unsafe_allow_html=True)
-            if st.button("Lancer Analyse", key="s1"): st.session_state.studio_mode="AO"; st.rerun()
+            st.markdown("""<div class="studio-btn"><div class="studio-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0055FF" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg></div><div class="studio-t">Analyse AO</div><div class="studio-d">Extraction critères</div></div>""", unsafe_allow_html=True)
+            if st.button("Lancer", key="s1"): st.session_state.studio_mode="AO"; st.rerun()
         with c2:
-            st.markdown("""<div class="studio-btn"><div class="studio-t">💶 Extraction Finance</div><div class="studio-d">Traitement de devis</div></div>""", unsafe_allow_html=True)
-            if st.button("Lancer Finance", key="s2"): st.session_state.studio_mode="Finance"; st.rerun()
+            st.markdown("""<div class="studio-btn"><div class="studio-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0055FF" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div><div class="studio-t">Finance</div><div class="studio-d">Devis & Factures</div></div>""", unsafe_allow_html=True)
+            if st.button("Lancer", key="s2"): st.session_state.studio_mode="Finance"; st.rerun()
         with c3:
-            st.markdown("""<div class="studio-btn"><div class="studio-t">⚖️ Juridique</div><div class="studio-d">Conformité et risques</div></div>""", unsafe_allow_html=True)
-            if st.button("Lancer Juridique", key="s3"): st.session_state.studio_mode="Juridique"; st.rerun()
+            st.markdown("""<div class="studio-btn"><div class="studio-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#0055FF" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div><div class="studio-t">Juridique</div><div class="studio-d">Risques & Conformité</div></div>""", unsafe_allow_html=True)
+            if st.button("Lancer", key="s3"): st.session_state.studio_mode="Juridique"; st.rerun()
     else:
         if st.button("← Retour"): st.session_state.studio_mode = None; st.rerun()
         st.markdown(f"### Mode : {st.session_state.studio_mode}")
         f = st.file_uploader("Document", type=['png', 'jpg', 'jpeg'])
         if f and st.button("ANALYSER"):
-            im = Image.open(f)
-            st.image(im, width=200)
+            im = Image.open(f); st.image(im, width=200)
             with st.spinner("Traitement..."): st.write(analyze(im, f"Mode {st.session_state.studio_mode}."))
 
 # ADMIN
@@ -401,7 +379,7 @@ elif st.session_state.page == 'admin':
 # PARAMETRES
 elif st.session_state.page == 'settings':
     st.title("Paramètres Généraux")
-    t1, t2, t3, t4 = st.tabs(["Critères Experts", "Abonnements", "Mentions", "CERFA"])
+    t1, t2, t3, t4 = st.tabs(["Critères", "Abonnements", "Mentions", "CERFA"])
     
     with t1:
         st.subheader("Configuration IA Expert")
@@ -419,6 +397,7 @@ elif st.session_state.page == 'settings':
             st.slider("Pénalités max acceptées (%)", 0, 100, 5)
             st.text_input("Mots-clés interdits", placeholder="Amiante, Nucléaire...")
             st.multiselect("Marchés cibles", ["Public", "Privé"], default=["Public"])
+            st.text_input("Garanties exigées", placeholder="Décennale...")
 
     with t2:
         st.subheader("Plans Tarifaires")
