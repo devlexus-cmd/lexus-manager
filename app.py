@@ -1,8 +1,47 @@
+# ⚠️ BLOC DIAGNOSTIC — à supprimer après résolution
+import streamlit as st
+ 
+st.sidebar.markdown("---")
+st.sidebar.markdown("**🔍 DIAGNOSTIC**")
+ 
+# Test 1 : package anthropic installé ?
 try:
-    k = st.secrets.get("ANTHROPIC_API_KEY", "INTROUVABLE")
-    st.sidebar.caption(f"DEBUG clé : {k[:10]}...")
+    import anthropic
+    st.sidebar.success("✅ Package `anthropic` installé")
+except ImportError:
+    st.sidebar.error("❌ Package `anthropic` NON installé — vérifiez requirements.txt")
+ 
+# Test 2 : clé présente dans les secrets ?
+try:
+    key = st.secrets.get("ANTHROPIC_API_KEY", None)
+    if key:
+        st.sidebar.success(f"✅ Clé trouvée : {key[:12]}...")
+    else:
+        st.sidebar.error("❌ ANTHROPIC_API_KEY absente des secrets")
 except Exception as e:
-    st.sidebar.caption(f"DEBUG erreur : {e}")import streamlit as st
+    st.sidebar.error(f"❌ Erreur secrets : {e}")
+ 
+# Test 3 : clé valide (appel test à l'API) ?
+try:
+    import anthropic as ac
+    key = st.secrets.get("ANTHROPIC_API_KEY", None)
+    if key:
+        client = ac.Anthropic(api_key=key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "dis ok"}]
+        )
+        st.sidebar.success("✅ API Claude répond correctement")
+except ac.AuthenticationError:
+    st.sidebar.error("❌ Clé invalide (AuthenticationError)")
+except ac.RateLimitError:
+    st.sidebar.warning("⚠️ Quota atteint mais la clé est valide")
+except Exception as e:
+    st.sidebar.error(f"❌ Erreur API : {e}")
+ 
+st.sidebar.markdown("---")
+# FIN BLOC DIAGNOSTIC
 import anthropic
 from PIL import Image
 import pandas as pd
