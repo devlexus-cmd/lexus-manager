@@ -546,7 +546,7 @@ def get_dc1_pdf(info: dict, project: dict) -> tuple[bytes, str]:
 # 7. MOTEUR IA
 # ============================================================
 try:
-    api_key = st.secrets.get("GOOGLE_API_KEY", None)
+    api_key = st.secrets.get("AIzaSyBTOcPWnbXZ5YsBGpUbQr9HpTe3nfZwks0", None)
     if api_key:
         genai.configure(api_key=api_key)
         models = [m.name for m in genai.list_models()
@@ -593,9 +593,9 @@ Analyse ce document et retourne UNIQUEMENT un objet JSON valide (sans markdown, 
 def analyze(image, prompt: str) -> str:
     plan_info = PLANS.get(st.session_state.subscription_plan, PLANS["GRATUIT"])
     if st.session_state.credits_used >= plan_info["limit"]:
-        return f"⚠️ LIMITE ATTEINTE ({plan_info['limit']}/sem). Passez à l'abonnement supérieur."
+        return f" LIMITE ATTEINTE ({plan_info['limit']}/sem). Passez à l'abonnement supérieur."
     if not active_model:
-        return "⚠️ Clé API invalide."
+        return " Clé API invalide."
     try:
         model = genai.GenerativeModel(active_model)
         res = model.generate_content([prompt, image]).text
@@ -751,7 +751,7 @@ with st.sidebar:
  
     if st.session_state.get("user_role") == "admin":
         st.markdown("---")
-        if st.button("🔴 ADMIN PANEL"):
+        if st.button("ADMIN PANEL"):
             st.session_state.page = "admin"
             st.rerun()
  
@@ -863,17 +863,17 @@ elif st.session_state.page == "project":
     with col_left:
         st.subheader("Flux de Travail")
         steps = [
-            "📞 Prise de contact",
-            "🤝 Réunion équipe",
-            "📁 Collecte documents",
-            "💰 Estimation devis",
-            "✍️  Rédaction mémoire",
-            "🔍 Relecture",
-            "📋 Documents administratifs",
-            "📤 Envoi du dossier",
-            "📬 Réception accusé",
-            "📎 Compléments éventuels",
-            "📣 Relance / Résultat",
+            " Prise de contact",
+            " Réunion équipe",
+            " Collecte documents",
+            " Estimation devis",
+            " Rédaction mémoire",
+            " Relecture",
+            " Documents administratifs",
+            " Envoi du dossier",
+            " Réception accusé",
+            "Compléments éventuels",
+            " Relance / Résultat",
         ]
         for step in steps:
             st.checkbox(step, key=f"w_{p['id']}_{step}")
