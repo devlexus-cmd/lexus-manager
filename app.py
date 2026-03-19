@@ -546,7 +546,7 @@ def get_dc1_pdf(info: dict, project: dict) -> tuple[bytes, str]:
 # 7. MOTEUR IA
 # ============================================================
 try:
-    api_key = st.secrets.get("AIzaSyBTOcPWnbXZ5YsBGpUbQr9HpTe3nfZwks0", None)
+    api_key = st.secrets.get("AIzaSyALD60gNtECEXiE72V6fHETPI0x11nS97M", None)
     if api_key:
         genai.configure(api_key=api_key)
         models = [m.name for m in genai.list_models()
