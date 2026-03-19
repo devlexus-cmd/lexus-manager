@@ -593,7 +593,7 @@ def get_dc1_pdf(info: dict, project: dict) -> tuple[bytes, str]:
 CLAUDE_MODEL = "claude-sonnet-4-6"
 
 try:
-    _api_key = st.secrets.get("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", None)
+    _api_key = st.secrets.get("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", None)
     if _api_key:
         _claude_client = anthropic.Anthropic(api_key=_api_key)
         API_STATUS = "ONLINE"
