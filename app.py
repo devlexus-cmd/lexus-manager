@@ -1,4 +1,8 @@
-import streamlit as st
+try:
+    k = st.secrets.get("ANTHROPIC_API_KEY", "INTROUVABLE")
+    st.sidebar.caption(f"DEBUG clé : {k[:10]}...")
+except Exception as e:
+    st.sidebar.caption(f"DEBUG erreur : {e}")import streamlit as st
 import anthropic
 from PIL import Image
 import pandas as pd
